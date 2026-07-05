@@ -1,0 +1,175 @@
+[
+  {
+    "Name": "/zigbee2mqtt",
+    "State": {
+      "Status": "exited"
+    },
+    "Config": {
+      "Image": "koenkk/zigbee2mqtt:2.12.0",
+      "Labels": {
+        "com.docker.compose.config-hash": "39367b184b6ddce7fc27913e2344e9bbaba7789741b5cc39ceb50d5b7321dad8",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "mosquitto:service_started:false",
+        "com.docker.compose.image": "sha256:35d22889af875f6f7662c4eb626680fd45f0a128be38749e1233e977bd2171c1",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "zigbee",
+        "com.docker.compose.project.config_files": "/volume/docker/portainer_data/compose/369/docker-compose.yml",
+        "com.docker.compose.project.working_dir": "/volume/docker/portainer_data/compose/369",
+        "com.docker.compose.replace": "c57d91d9b477cfc9dac4f332db04e78604950cfc8e7eb37878a5a2099d99013b",
+        "com.docker.compose.service": "zigbee2mqtt",
+        "com.docker.compose.version": "2.24.5",
+        "org.opencontainers.image.authors": "Koen Kanters",
+        "org.opencontainers.image.created": "2026-06-09T15:27:28Z",
+        "org.opencontainers.image.description": "Zigbee to MQTT bridge using Zigbee-herdsman",
+        "org.opencontainers.image.documentation": "https://www.zigbee2mqtt.io/",
+        "org.opencontainers.image.licenses": "GPL-3.0",
+        "org.opencontainers.image.source": "https://github.com/Koenkk/zigbee2mqtt",
+        "org.opencontainers.image.title": "Zigbee2MQTT",
+        "org.opencontainers.image.url": "https://github.com/Koenkk/zigbee2mqtt",
+        "org.opencontainers.image.version": "2.12.0"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/management/zigmqtt",
+        "Destination": "/app/data",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/run/udev",
+        "Destination": "/run/udev",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  },
+  {
+    "Name": "/homeassistant-prod-1",
+    "State": {
+      "Status": "running"
+    },
+    "Config": {
+      "Image": "ghcr.io/home-assistant/home-assistant:2026.6.3",
+      "Labels": {
+        "com.docker.compose.config-hash": "6361d08a43dc32ff33792afe2414b03616d0be6ccd343b3b852be8ee870f869c",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "",
+        "com.docker.compose.image": "sha256:763cb98bda3e4aeda6d70a2d9d4e3828c86c57454084382542697565820d0455",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "home_assistant_2",
+        "com.docker.compose.project.config_files": "/volume/docker/portainer_data/compose/236/docker-compose.yml",
+        "com.docker.compose.project.working_dir": "/volume/docker/portainer_data/compose/236",
+        "com.docker.compose.replace": "c22da8dbeb1fa993cec920ee49bd3c8504b7fc2b5632d4435161075ab7fc111d",
+        "com.docker.compose.service": "homeassistant",
+        "com.docker.compose.version": "2.24.5",
+        "io.hass.arch": "amd64",
+        "io.hass.base.arch": "amd64",
+        "io.hass.base.image": "ghcr.io/home-assistant/base:3.22",
+        "io.hass.base.name": "python",
+        "io.hass.base.version": "2026.05.0",
+        "io.hass.type": "core",
+        "io.hass.version": "2026.6.3",
+        "org.opencontainers.image.authors": "The Home Assistant Authors",
+        "org.opencontainers.image.created": "2026-06-12 19:56:30+00:00",
+        "org.opencontainers.image.description": "Open-source home automation platform running on Python 3",
+        "org.opencontainers.image.documentation": "https://www.home-assistant.io/docs/",
+        "org.opencontainers.image.licenses": "Apache-2.0",
+        "org.opencontainers.image.source": "https://github.com/home-assistant/core",
+        "org.opencontainers.image.title": "Home Assistant",
+        "org.opencontainers.image.url": "https://www.home-assistant.io/",
+        "org.opencontainers.image.version": "2026.6.3"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/volume/docker/portainer_data/compose/236/config",
+        "Destination": "/config",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/opt/hass-recorder",
+        "Destination": "/dbdata",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/etc/localtime",
+        "Destination": "/etc/localtime",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      }
+    ]
+  },
+  {
+    "Name": "/grafana",
+    "State": {
+      "Status": "running"
+    },
+    "Config": {
+      "Image": "grafana/grafana:latest",
+      "Labels": {
+        "com.docker.compose.config-hash": "fab5655e272cb5ca70c51712c44b27ec9bc6487b6600ede64eca242c254816a0",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "prometheus-main:service_started:false,loki:service_started:false",
+        "com.docker.compose.image": "sha256:072d3db0101e9fa5776fa9c454d8221994aeedf43e9abebe6652f42bf19bdc59",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "monitoring",
+        "com.docker.compose.project.config_files": "/opt/monitoring/docker-compose.yml",
+        "com.docker.compose.project.working_dir": "/opt/monitoring",
+        "com.docker.compose.replace": "4744a536564ef5c54d44dc4373f0e44aab076ebf05a24e129613b15f184272be",
+        "com.docker.compose.service": "grafana",
+        "com.docker.compose.version": "2.24.5",
+        "maintainer": "Grafana Labs <hello@grafana.com>",
+        "org.opencontainers.image.source": "https://github.com/grafana/grafana"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/opt/monitoring/grafana-provisioning/dashboards/hl",
+        "Destination": "/etc/grafana/provisioning/dashboards/hl",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/opt/monitoring/grafana-provisioning/dashboards/hl-dashboards.yaml",
+        "Destination": "/etc/grafana/provisioning/dashboards/hl-dashboards.yaml",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "bind",
+        "Source": "/opt/monitoring/grafana-provisioning/datasources/hl-loki.yaml",
+        "Destination": "/etc/grafana/provisioning/datasources/hl-loki.yaml",
+        "Mode": "ro",
+        "RW": false,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "volume",
+        "Name": "monitoring_grafana_data",
+        "Source": "/var/lib/docker/volumes/monitoring_grafana_data/_data",
+        "Destination": "/var/lib/grafana",
+        "Driver": "local",
+        "Mode": "z",
+        "RW": true,
+        "Propagation": ""
+      }
+    ]
+  }
+]

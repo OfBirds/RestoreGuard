@@ -1,0 +1,88 @@
+= Automation & JSON output
+
+Greylag Goose is deliberately a *one-shot CLI*: it composes with the scheduler
+you already run instead of shipping its own daemon. Cron, a systemd timer, or a
+CI job plus the exit codes and `--json` cover the "audit me every night" case.
+
+== Exit codes
+
+[cols="1,4"]
+|===
+| `0` | all green/yellow — nothing restore-threatening
+| `1` | at least one *RED* finding, *or* a provider error (a host couldn't be fully audited, so the result is partial — treat it as a failure, since unaudited is unprotected)
+| `2` | config or preflight problem (bad config file, unreachable prerequisite)
+|===
+
+== Machine-readable report: `--json`
+
+[source,shell]
+----
+restoreguard audit --json > report.json
+----
+
+Prints a single JSON document on stdout. The field names are a *contract* —
+changes are additive only, so scripts written today keep working:
+
+[source,json]
+----
+{
+  "generatedAt": "2026-07-05T03:00:12+00:00",
+  "overall": "red",
+  "partial": false,
+  "counts": {
+    "services": 42,
+    "backupArtifacts": 118,
+    "storageTargets": 9,
+    "red": 1,
+    "yellow": 3
+  },
+  "findings": [
+    {
+      "ruleId": "db-backup/stale",
+      "severity": "red",
+      "service": "myapp-prod-postgres-1",
+      "host": "mydockerhost",
+      "evidence": "newest dump myapp-prod-postgres-1_20260630.sql.gz is 4.2 days old (limit 26h)",
+      "suggestedAction": "check the dump job's cron/logs on mydockerhost"
+    }
+  ],
+  "suppressedFindings": [ /* same shape */ ],
+  "activeSuppressions": [ /* your suppressions.json entries */ ],
+  "providerErrors": []
+}
+----
+
+* `overall` is the worst severity present; `partial: true` means at least one
+  provider failed and `providerErrors` says which.
+* `suppressedFindings` and `activeSuppressions` are always included — the JSON
+  shows what was silenced, same as the text report.
+
+== Nightly audit with cron
+
+[source,shell]
+----
+# /etc/cron.d/restoreguard — 07:00, after the night's backup jobs finished
+0 7 * * * auditor cd /home/auditor/goose && \
+  /home/auditor/.local/bin/restoreguard audit --json > last-report.json \
+  || echo "backup audit RED or failed - check last-report.json" | mail -s "goose alarm" you@example.com
+----
+
+Because a partial audit exits `1` too, "the audit itself broke" and "a backup
+is bad" both raise the alarm — there is no state where failure looks like
+success.
+
+The same pattern works with a systemd timer, Gotify/ntfy hooks, or any
+monitoring system that can run a command and read an exit code; feed
+`last-report.json` to `jq` for dashboards:
+
+[source,shell]
+----
+jq -r '.findings[] | "\(.severity)\t\(.ruleId)\t\(.service)"' last-report.json
+----
+
+== Doctor in automation
+
+`restoreguard doctor` uses the same exit-code convention, so you can run it
+after infrastructure changes (or weekly) to catch a broken prerequisite —
+an expired SSH key, a moved dump directory — *before* it turns the nightly
+audit into a partial one.

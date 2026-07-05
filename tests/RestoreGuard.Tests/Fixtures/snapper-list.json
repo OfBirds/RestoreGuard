@@ -1,0 +1,46 @@
+{
+  "rgdata": [
+    {
+      "subvolume": "/srv/btrfs",
+      "number": 0,
+      "default": false,
+      "active": false,
+      "type": "single",
+      "pre-number": null,
+      "date": "",
+      "user": "root",
+      "used-space": null,
+      "cleanup": "",
+      "description": "current",
+      "userdata": null
+    },
+    {
+      "subvolume": "/srv/btrfs",
+      "number": 1,
+      "default": false,
+      "active": false,
+      "type": "single",
+      "pre-number": null,
+      "date": "2026-07-05 08:55:05",
+      "user": "root",
+      "used-space": null,
+      "cleanup": "",
+      "description": "baseline",
+      "userdata": null
+    },
+    {
+      "subvolume": "/srv/btrfs",
+      "number": 2,
+      "default": false,
+      "active": false,
+      "type": "single",
+      "pre-number": null,
+      "date": "2026-07-05 08:55:05",
+      "user": "root",
+      "used-space": null,
+      "cleanup": "",
+      "description": "second",
+      "userdata": null
+    }
+  ]
+}

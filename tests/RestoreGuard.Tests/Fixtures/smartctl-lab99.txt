@@ -1,0 +1,234 @@
+===DEV /dev/sda
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/sda"
+    ],
+    "drive_database_version": {
+      "string": "7.3/5319"
+    },
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/sda",
+    "info_name": "/dev/sda [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "smart_status": {
+    "passed": true
+  }
+}
+===DEV /dev/sdb
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/sdb"
+    ],
+    "drive_database_version": {
+      "string": "7.3/5319"
+    },
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/sdb",
+    "info_name": "/dev/sdb [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "smart_status": {
+    "passed": true
+  }
+}
+===DEV /dev/sdc
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/sdc"
+    ],
+    "drive_database_version": {
+      "string": "7.3/5319"
+    },
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/sdc",
+    "info_name": "/dev/sdc [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "smart_status": {
+    "passed": true
+  }
+}
+===DEV /dev/sdd
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/sdd"
+    ],
+    "drive_database_version": {
+      "string": "7.3/5319"
+    },
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/sdd",
+    "info_name": "/dev/sdd [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "smart_status": {
+    "passed": true
+  }
+}
+===DEV /dev/sde
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/sde"
+    ],
+    "drive_database_version": {
+      "string": "7.3/5319"
+    },
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/sde",
+    "info_name": "/dev/sde [SAT]",
+    "type": "sat",
+    "protocol": "ATA"
+  },
+  "smart_status": {
+    "passed": true
+  }
+}
+===DEV /dev/nvme0
+{
+  "json_format_version": [
+    1,
+    0
+  ],
+  "smartctl": {
+    "version": [
+      7,
+      3
+    ],
+    "svn_revision": "5338",
+    "platform_info": "x86_64-linux-6.8.12-20-pve",
+    "build_info": "(local build)",
+    "argv": [
+      "smartctl",
+      "-H",
+      "-j",
+      "/dev/nvme0"
+    ],
+    "exit_status": 0
+  },
+  "local_time": {
+    "time_t": 1783198095,
+    "asctime": "Sat Jul  4 22:48:15 2026 CEST"
+  },
+  "device": {
+    "name": "/dev/nvme0",
+    "info_name": "/dev/nvme0",
+    "type": "nvme",
+    "protocol": "NVMe"
+  },
+  "smart_status": {
+    "passed": true,
+    "nvme": {
+      "value": 0
+    }
+  }
+}

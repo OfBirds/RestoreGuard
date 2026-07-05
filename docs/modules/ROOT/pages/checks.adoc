@@ -1,0 +1,117 @@
+= What gets checked
+
+Every finding carries a stable *rule id* (used in xref:suppressions.adoc[suppressions]
+and the xref:automation.adoc[JSON output]), a severity, the affected service,
+and the evidence that triggered it.
+
+*How to read severities:*
+
+* *RED* — restore-threatening. If you needed this backup today, it would fail
+  you: nothing is backed up, the backup is stale or empty, or it is unrestorable.
+* *YELLOW* — hygiene or early warning. Not an emergency, but it will become one
+  if ignored.
+
+== Mount drift (`dockerHosts`)
+
+The classic silent killer: your backup job archives the path the compose file
+*declares*, but the container actually writes somewhere else.
+
+[cols="2,1,4"]
+|===
+| Rule | Severity | Meaning
+
+| `mount-drift/missing-live` | RED | a declared bind-mount/volume is not mounted in the running container
+| `mount-drift/source-mismatch` | RED | mounted, but from a different source path than declared — backups read the wrong place
+| `mount-drift/extra-live` | YELLOW | the container mounts something the compose file doesn't declare
+| `mount-drift/unresolved-declared` | YELLOW | the compose project's config can't be resolved on the host (e.g. stacks deployed by an external tool), so drift is uncheckable — one aggregated finding per project
+|===
+
+== Stale configs (`dockerHosts`)
+
+[cols="2,1,4"]
+|===
+| `config-drift/stale-config` | YELLOW | the running container was created from an older compose config than what is on disk — the next restart silently changes behavior
+|===
+
+== Database dumps (`logicalDbBackups`)
+
+[cols="2,1,4"]
+|===
+| `db-backup/uncovered` | RED | a live database container has no dump at all
+| `db-backup/stale` | RED | newest dump is older than `maxDumpAgeHours`
+| `db-backup/empty` | RED | the dump file is zero bytes
+| `db-backup/small` | YELLOW | the dump is suspiciously small for a real database
+| `db-backup/method-mismatch` | RED | the job's dump method doesn't fit the container's engine (e.g. `pg_dumpall` against a DocumentDB image) — the file exists but cannot restore that database
+| `db-backup/unmatched` | RED | with `requireProdNaming`: a running DB container matches neither the prod convention nor the skip list — it will never be backed up until someone decides
+|===
+
+== Image backups — Proxmox (`pveNodes`)
+
+[cols="2,1,4"]
+|===
+| `image-backup/uncovered` | RED | a VM/LXC has no image backup in any configured storage
+| `image-backup/stale` | RED | newest image backup is older than `pbsMaxSnapshotAgeHours`
+| `image-backup/empty` | RED | the backup artifact is zero-sized
+| `image-backup/orphan` | YELLOW | a backup exists for a guest that no longer does — usually a rename/migration leftover worth pruning (or a sign the *new* guest isn't covered)
+|===
+
+== PBS hygiene (`pbsMaintenance`, `pbsOffsite`)
+
+[cols="2,1,4"]
+|===
+| `pbs/verify-failed` | RED | the last completed verification reported errors — chunks in the datastore are corrupt
+| `pbs/verify-never-ran` | YELLOW | verify jobs exist but none has ever completed
+| `pbs/verify-stale` | YELLOW | last successful verification is older than `maxVerifyAgeHours`
+| `pbs/no-verify-jobs` | YELLOW | the datastore has no verify job at all — backups are never integrity-checked
+| `pbs/gc-never-ran` | YELLOW | garbage collection has never run on the datastore
+| `pbs/gc-stale` | YELLOW | GC hasn't run within `maxGcAgeDays`
+| `pbs/offsite-failed` | RED | the last off-site sync exited non-zero
+| `pbs/offsite-stale` | RED | no successful off-site sync within `maxSyncAgeHours`
+|===
+
+== File-level backups (`fileBackups`)
+
+Apply per configured source, across all kinds (restic, borg, kopia, snapper,
+dir, haos):
+
+[cols="2,1,4"]
+|===
+| `file-backup/uncovered` | RED | the source produced no artifacts at all — empty repo, empty directory, no full backup
+| `file-backup/stale` | RED | newest artifact is older than the source's `maxAgeHours`
+| `file-backup/empty` | RED | the newest artifact is zero-sized
+|===
+
+== TrueNAS (`trueNas`)
+
+[cols="2,1,4"]
+|===
+| `zfs/snapshot-stale` | RED | newest ZFS snapshot is older than `maxSnapshotAgeHours`
+| `cloudsync/failed` | RED | a cloud-sync task's last run failed
+| `cloudsync/stale` | RED | a cloud-sync task hasn't succeeded within `maxSyncAgeHours`
+| `cloudsync/disabled` | YELLOW | a configured cloud-sync task is disabled
+| `cloudsync/not-off-box` | YELLOW | a top-level dataset is covered by no cloud-sync task — its data never leaves the box
+|===
+
+== Storage & disks (`pveNodes`, `trueNas`, `smartHosts`)
+
+[cols="2,1,4"]
+|===
+| `storage/unhealthy` | RED | a pool/datastore is not healthy (e.g. DEGRADED) or a disk fails SMART
+| `storage/capacity-critical` | RED | usage above the critical threshold — backups may already be silently rejected
+| `storage/capacity-warn` | YELLOW | usage above the warning threshold
+| `storage/scrub-overdue` | YELLOW | last ZFS scrub is too old
+| `storage/inactive` | YELLOW | a configured storage is not active
+| `storage/health-unknown` | YELLOW | health could not be determined
+|===
+
+== Suppression hygiene (always on)
+
+Suppressions themselves are audited — they can never rot silently:
+
+[cols="2,1,4"]
+|===
+| `suppression/expired` | YELLOW | a suppression passed its `expires` date and needs a fresh decision
+| `suppression/unknown-target` | YELLOW | a suppression points at a host/service that no longer exists
+|===
+
+These two are *not suppressible* — by design.

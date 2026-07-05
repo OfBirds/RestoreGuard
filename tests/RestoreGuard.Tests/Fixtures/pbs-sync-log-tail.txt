@@ -1,0 +1,30 @@
+=== 2026-07-02 05:00 CEST sync start ===
+=== sync finished rc=0 ===
+=== 2026-07-03 05:00 CEST sync start ===
+2026/07/03 05:05:51 ERROR : .chunks: error reading destination directory: couldn't list files: Get "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s28802e204f9a439291ec0606feabe285/children?$top=1000&$skiptoken=UGFnZWQ9VFJVRSZwX0ZpbGVMZWFmUmVmPTg0ZDEmcF9JRD00OTk1NA": remote error: tls: unrecognized name
+2026/07/03 05:05:51 ERROR : OneDrive root 'pbs-datastore': not deleting files as there were IO errors
+2026/07/03 05:06:21 ERROR : ct/102/2026-07-03T00:30:03Z: Failed to update directory timestamp or metadata: ct/102/2026-07-03T00:30:03Z: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s10fd6bb8413248f5937bbe9bea65e130:/2026-07-03T00%EF%BC%9A30%EF%BC%9A03Z:": remote error: tls: unrecognized name
+2026/07/03 05:06:21 ERROR : ct/103/2026-07-03T00:49:58Z: Failed to update directory timestamp or metadata: ct/103/2026-07-03T00:49:58Z: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s2dd6b3d7240a468c8ff2fa52bce225c1:/2026-07-03T00%EF%BC%9A49%EF%BC%9A58Z:": remote error: tls: unrecognized name
+2026/07/03 05:06:21 ERROR : ct/104/2026-07-03T00:50:29Z: Failed to update directory timestamp or metadata: ct/104/2026-07-03T00:50:29Z: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!sddbbc7d2086340c58d13fb8fa6d54b8f:/2026-07-03T00%EF%BC%9A50%EF%BC%9A29Z:": remote error: tls: unrecognized name
+2026/07/03 05:06:21 ERROR : ct/100/2026-07-03T00:00:04Z: Failed to update directory timestamp or metadata: ct/100/2026-07-03T00:00:04Z: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s7edcaa91817747fcb6157620821bc994:/2026-07-03T00%EF%BC%9A00%EF%BC%9A04Z:": remote error: tls: unrecognized name
+2026/07/03 05:06:51 ERROR : ct/104: Failed to update directory timestamp or metadata: ct/104: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s209d0c7dfe4842bd80f5c834e4c9e264:/104:": remote error: tls: unrecognized name
+2026/07/03 05:06:51 ERROR : ct/100: Failed to update directory timestamp or metadata: ct/100: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s209d0c7dfe4842bd80f5c834e4c9e264:/100:": remote error: tls: unrecognized name
+2026/07/03 05:06:51 ERROR : ct/102: Failed to update directory timestamp or metadata: ct/102: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s209d0c7dfe4842bd80f5c834e4c9e264:/102:": remote error: tls: unrecognized name
+2026/07/03 05:06:51 ERROR : ct/103: Failed to update directory timestamp or metadata: ct/103: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s209d0c7dfe4842bd80f5c834e4c9e264:/103:": remote error: tls: unrecognized name
+2026/07/03 05:07:21 ERROR : ct: Failed to update directory timestamp or metadata: ct: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/ct:": remote error: tls: unrecognized name
+2026/07/03 05:07:21 ERROR : OneDrive root 'pbs-datastore': not deleting directories as there were IO errors
+2026/07/03 05:07:21 ERROR : Attempt 1/3 failed with 11 errors and: failed to set directory modtime: 9 errors: last error: ct: error updating metadata: Patch "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/ct:": remote error: tls: unrecognized name
+2026/07/03 05:07:51 ERROR : OneDrive root 'pbs-datastore': error reading destination root directory: couldn't list files: Get "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7/children?$top=1000": remote error: tls: unrecognized name
+2026/07/03 05:08:08 ERROR : .lock: Failed to copy: Put "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/.lock:/content": remote error: tls: unrecognized name
+2026/07/03 05:08:08 ERROR : OneDrive root 'pbs-datastore': not deleting files as there were IO errors
+2026/07/03 05:08:08 ERROR : OneDrive root 'pbs-datastore': not deleting directories as there were IO errors
+2026/07/03 05:08:08 ERROR : Attempt 2/3 failed with 2 errors and: Put "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/.lock:/content": remote error: tls: unrecognized name
+2026/07/03 05:08:38 ERROR : OneDrive root 'pbs-datastore': error reading destination root directory: couldn't list files: Get "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7/children?$top=1000": remote error: tls: unrecognized name
+2026/07/03 05:09:08 ERROR : .lock: Failed to copy: Put "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/.lock:/content": remote error: tls: unrecognized name
+2026/07/03 05:09:08 ERROR : OneDrive root 'pbs-datastore': not deleting files as there were IO errors
+2026/07/03 05:09:08 ERROR : OneDrive root 'pbs-datastore': not deleting directories as there were IO errors
+2026/07/03 05:09:08 ERROR : Attempt 3/3 failed with 2 errors and: Put "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/.lock:/content": remote error: tls: unrecognized name
+2026/07/03 05:09:08 NOTICE: Failed to sync with 2 errors: last error was: Put "https://graph.microsoft.com/v1.0/drives/E9F52B727A492465/items/E9F52B727A492465!s05512f7b39e24506b9d9770eb1d8b8b7:/.lock:/content": remote error: tls: unrecognized name
+=== sync finished rc=1 ===
+=== 2026-07-04 05:00 CEST sync start ===
+=== sync finished rc=0 ===

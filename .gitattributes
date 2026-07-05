@@ -1,0 +1,6 @@
+# Shell scripts and container files must stay LF — a CRLF checkout on Windows
+# followed by a copy to Linux breaks them ("\r: command not found").
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+*.yml text eol=lf

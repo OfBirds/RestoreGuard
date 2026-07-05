@@ -1,0 +1,8 @@
+name: goose
+title: Greylag Goose
+# Unversioned while the docs site bootstraps. From the first tagged release that
+# contains this file onward, set an explicit version (e.g. '0.2') so the docs
+# site can offer per-release docs pulled from tags.
+version: ~
+nav:
+- modules/ROOT/nav.adoc

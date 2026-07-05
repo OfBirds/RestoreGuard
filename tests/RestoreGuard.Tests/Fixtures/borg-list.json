@@ -1,0 +1,20 @@
+{
+    "archives": [
+        {
+            "archive": "lab55-2026-07-05_0837",
+            "barchive": "lab55-2026-07-05_0837",
+            "id": "70355d67d4342f4b260f7f1ce8ab8f358678893b44a365ba4d9ad011ad7aefb9",
+            "name": "lab55-2026-07-05_0837",
+            "start": "2026-07-05T08:37:14.000000",
+            "time": "2026-07-05T08:37:14.000000"
+        }
+    ],
+    "encryption": {
+        "mode": "repokey"
+    },
+    "repository": {
+        "id": "c10ad443821b92e6e847c807f41d3e22c7ed13d02898efa609d150c57a39824e",
+        "last_modified": "2026-07-05T08:37:15.000000",
+        "location": "/var/backups/borg-lab55"
+    }
+}

@@ -1,0 +1,146 @@
+[
+  {
+    "Name": "/mulberryheron-prod-postgres-1",
+    "State": {
+      "Status": "running"
+    },
+    "Config": {
+      "Image": "ghcr.io/ferretdb/postgres-documentdb:17",
+      "Labels": {
+        "com.docker.compose.config-hash": "5a456756a7e8896c53cb1f388cd0c7175d07801baea59638a2f5557ade3de86b",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "",
+        "com.docker.compose.image": "sha256:2386795ec2aa7ae559304361979f1dc5708d383ee9020ae63dadc2940dfe58f7",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "mulberryheron-prod",
+        "com.docker.compose.project.config_files": "/home/at/actions-runner-mulberryheron/_work/MulberryHeron/MulberryHeron/deploy/docker-compose.yml",
+        "com.docker.compose.project.environment_file": "/opt/mulberryheron/.env.prod",
+        "com.docker.compose.project.working_dir": "/home/at/actions-runner-mulberryheron/_work/MulberryHeron/MulberryHeron/deploy",
+        "com.docker.compose.service": "postgres",
+        "com.docker.compose.version": "5.1.4",
+        "org.opencontainers.image.description": "PostgreSQL with DocumentDB extension",
+        "org.opencontainers.image.source": "https://github.com/FerretDB/documentdb",
+        "org.opencontainers.image.title": "PostgreSQL+DocumentDB",
+        "org.opencontainers.image.url": "https://www.ferretdb.com/",
+        "org.opencontainers.image.vendor": "FerretDB Inc.",
+        "org.opencontainers.image.version": "0.107.0~ferretdb~2.7.0"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "volume",
+        "Name": "mulberryheron-prod_pgdata",
+        "Source": "/var/lib/docker/volumes/mulberryheron-prod_pgdata/_data",
+        "Destination": "/var/lib/postgresql/data",
+        "Driver": "local",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": ""
+      }
+    ]
+  },
+  {
+    "Name": "/mulberryheron-prod-app-1",
+    "State": {
+      "Status": "running"
+    },
+    "Config": {
+      "Image": "ghcr.io/ofbirds/heron:prod",
+      "Labels": {
+        "com.docker.compose.config-hash": "9052af63e7b206131f9ed216f84ee48f42b37baf19012d12453331b0b0e23b4b",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "ferretdb:service_started:false,seq:service_started:false,otel-collector:service_started:false",
+        "com.docker.compose.image": "sha256:8f43cb1ecd0b319151afc4eab89dfc8797b0e5781c261ede961d6b4079ead082",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "mulberryheron-prod",
+        "com.docker.compose.project.config_files": "/home/at/actions-runner-mulberryheron/_work/MulberryHeron/MulberryHeron/deploy/docker-compose.yml",
+        "com.docker.compose.project.environment_file": "/opt/mulberryheron/.env.prod",
+        "com.docker.compose.project.working_dir": "/home/at/actions-runner-mulberryheron/_work/MulberryHeron/MulberryHeron/deploy",
+        "com.docker.compose.replace": "app-1",
+        "com.docker.compose.service": "app",
+        "com.docker.compose.version": "5.1.4",
+        "org.opencontainers.image.version": "24.04"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "volume",
+        "Name": "mulberryheron-prod_photos",
+        "Source": "/var/lib/docker/volumes/mulberryheron-prod_photos/_data",
+        "Destination": "/data/photos",
+        "Driver": "local",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": ""
+      }
+    ]
+  },
+  {
+    "Name": "/crimsonraven-kc-prod-postgres-1",
+    "State": {
+      "Status": "running"
+    },
+    "Config": {
+      "Image": "postgres:16",
+      "Labels": {
+        "com.docker.compose.config-hash": "08c60134aa45218bc263b7a364a0ba3de7abc0589011f4e5350e6420358b2107",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "",
+        "com.docker.compose.image": "sha256:081f1bc7bd5e143dbb6e487b710bbc27712cdcfaced4c071b8e47349aa1b4171",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "crimsonraven-kc-prod",
+        "com.docker.compose.project.config_files": "/opt/crimsonraven/keycloak/docker-compose.prod.yml",
+        "com.docker.compose.project.environment_file": "/opt/crimsonraven/keycloak/.env.prod",
+        "com.docker.compose.project.working_dir": "/opt/crimsonraven/keycloak",
+        "com.docker.compose.service": "postgres",
+        "com.docker.compose.version": "5.1.4"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "volume",
+        "Name": "crimsonraven-kc-prod_kc-pgdata-prod",
+        "Source": "/var/lib/docker/volumes/crimsonraven-kc-prod_kc-pgdata-prod/_data",
+        "Destination": "/var/lib/postgresql/data",
+        "Driver": "local",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": ""
+      }
+    ]
+  },
+  {
+    "Name": "/fuel-postgres",
+    "State": {
+      "Status": "exited"
+    },
+    "Config": {
+      "Image": "postgres:15-alpine",
+      "Labels": {
+        "com.docker.compose.config-hash": "da668534b04cced1cb5d21d93c497673979d9393be15cb4e4d84e94b652e381a",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "",
+        "com.docker.compose.image": "sha256:cd17e2ac98240fce1541ad2a803b34009b4eea5aec8a832363cdc7eca62e722e",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "fuel",
+        "com.docker.compose.project.config_files": "/root/fuel/docker-compose.yml",
+        "com.docker.compose.project.working_dir": "/root/fuel",
+        "com.docker.compose.replace": "fuel-postgres",
+        "com.docker.compose.service": "postgres",
+        "com.docker.compose.version": "5.1.4"
+      }
+    },
+    "Mounts": [
+      {
+        "Type": "volume",
+        "Name": "fuel_postgres_data",
+        "Source": "/var/lib/docker/volumes/fuel_postgres_data/_data",
+        "Destination": "/var/lib/postgresql/data",
+        "Driver": "local",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": ""
+      }
+    ]
+  }
+]

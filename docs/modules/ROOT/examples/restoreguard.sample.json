@@ -1,0 +1,146 @@
+{
+  // RestoreGuard config — EVERY section is optional; a check only runs when its
+  // section is present. Hosts are SSH ALIASES from the operator machine's
+  // ~/.ssh/config (key-based, passwordless auth — the audit runs ssh -o BatchMode=yes).
+  // Full guide: https://ofbirds.org/docs/goose/ (in-repo: docs/modules/ROOT/pages/).
+  // Comments and trailing commas are allowed in this file.
+
+  // Docker hosts to audit for mount drift (declared compose config vs live mounts).
+  "dockerHosts": [
+    { "alias": "mydockerhost", "dockerPath": "docker" },
+    // Use an absolute path when docker isn't in the SSH user's PATH:
+    { "alias": "myotherhost", "dockerPath": "/usr/bin/docker" }
+  ],
+
+  // Nightly logical DB dump jobs (files named <container>_<yyyyMMdd>.sql.gz).
+  // coversHosts: which dockerHosts' DB containers each job is responsible for.
+  // method: what the job runs (pg_dumpall | mysqldump | mongodump) — a container
+  // whose ENGINE needs a different method is a RED method-mismatch (a pg_dumpall
+  // of a MariaDB or DocumentDB "succeeds" but is unrestorable).
+  // requireProdNaming: true mirrors jobs that dump only containers named 'prod'
+  // (skipping 'staging'); false expects a dump for EVERY running DB container.
+  "logicalDbBackups": [
+    {
+      "host": "mydockerhost",
+      "path": "/var/backups/db-prod",
+      "coversHosts": ["mydockerhost"],
+      "maxDumpAgeHours": 26,
+      "method": "pg_dumpall",
+      "requireProdNaming": true
+    },
+    {
+      "host": "myotherhost",
+      "path": "/var/backups/db-mysql",
+      "coversHosts": ["myotherhost"],
+      "maxDumpAgeHours": 26,
+      "method": "mysqldump",
+      "requireProdNaming": false
+    }
+  ],
+
+  // Proxmox VE nodes. backupStorages lists PBS datastores AND plain vzdump dir
+  // storages — the storage type decides the tier, and either counts as image
+  // coverage for a guest. List a shared PBS datastore on EXACTLY ONE node.
+  "pveNodes": [
+    { "alias": "mypve", "node": "pve", "backupStorages": ["pbs-datastore", "local-dumps"] }
+  ],
+  "pbsMaxSnapshotAgeHours": 26,
+
+  // TrueNAS SCALE box: pool health/scrub, per-dataset capacity, snapshot freshness,
+  // cloud-sync task state. excludeDatasets are dropped BEFORE entering the model.
+  "trueNas": {
+    "alias": "mytruenas",
+    "excludeDatasets": [],
+    "maxSnapshotAgeHours": 26,
+    "maxSyncAgeHours": 26
+  },
+
+  // Off-site copy of the PBS datastore via an rclone sync script that logs
+  // "=== <ts> sync start ===" / "=== sync finished rc=N ===" lines.
+  "pbsOffsite": {
+    "alias": "mypve",
+    "logPath": "/var/log/pbs-onedrive-sync.log",
+    "rcloneRemote": "onedrive:",
+    "targetName": "pbs-nvme",
+    "maxSyncAgeHours": 26
+  },
+
+  // PBS GC + verify-job hygiene, read by running proxmox-backup-manager inside the
+  // PBS container from its PVE host (pct exec — needs root on the PVE host).
+  "pbsMaintenance": {
+    "execAlias": "mypve",
+    "containerId": 110,
+    "datastore": "main",
+    "host": "pve",
+    "maxGcAgeDays": 7,
+    // Last completed verification must be OK and younger than this (daily
+    // schedule + margin). A failed verification is RED - corrupted chunks.
+    "maxVerifyAgeHours": 50
+  },
+
+  // SMART health of PHYSICAL disks — probe the machines that own the disks
+  // (hypervisors, bare-metal NAS). A virtualized NAS only sees virtual disks.
+  "smartHosts": ["mypve"],
+
+  // File-level backup sources. Kinds: "restic" / "borg" (repo + password/passphrase
+  // file on the host — the secret never leaves it), "dir" (a directory of archive
+  // files, e.g. offen/docker-volume-backup tarballs), "haos" (Home Assistant OS full
+  // backups via the Proxmox qemu guest agent). Each configured source MUST produce
+  // artifacts — an empty repo / dir / no full HA backup is a RED finding.
+  "fileBackups": [
+    {
+      "name": "restic app configs",
+      "kind": "restic",
+      "alias": "mydockerhost",
+      "repo": "/mnt/nas/restic-repo",
+      "passwordFile": "/root/.restic-pass",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "borg system configs",
+      "kind": "borg",
+      "alias": "myotherhost",
+      "repo": "/var/backups/borg",
+      "passwordFile": "/root/.borg-pass",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "myvolume tarballs",
+      "kind": "dir",
+      "alias": "myotherhost",
+      "path": "/opt/volume-backups",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "home-assistant full backup",
+      "kind": "haos",
+      "alias": "mypve",
+      "vmid": 9000,
+      "maxAgeHours": 192
+    },
+    {
+      "name": "btrfs snapshots (snapper)",
+      "kind": "snapper",
+      "alias": "myotherhost",
+      "snapperConfig": "root",
+      "maxAgeHours": 26
+    },
+    {
+      // kopia keeps its own repo connection+password on the host: run
+      // `kopia repository connect ...` there once; listing then needs no secret.
+      "name": "kopia snapshots",
+      "kind": "kopia",
+      "alias": "mydockerhost",
+      "maxAgeHours": 26
+    }
+  ],
+
+  // Known exceptions with reasons + dates — a JSON list of entries like:
+  //   { "host": "mydockerhost", "service": "myapp-staging-postgres-1",
+  //     "ruleId": "db-backup/uncovered", "reason": "staging data is disposable",
+  //     "decidedOn": "2026-06-29", "expires": "2026-12-31",          // both optional:
+  //     "retriggerCondition": "revisit if staging holds real data" }
+  // Rule ids: the user guide's "What gets checked" page. Suppressed findings stay
+  // visible in every report; expired/dead entries become findings themselves.
+  "suppressionsFile": "suppressions.json"
+}

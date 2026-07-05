@@ -1,0 +1,209 @@
+{
+  "name": "mulberryheron-prod",
+  "networks": {
+    "internal": {
+      "name": "mulberryheron-prod_internal",
+      "ipam": {}
+    }
+  },
+  "services": {
+    "app": {
+      "command": null,
+      "depends_on": {
+        "ferretdb": {
+          "condition": "service_started",
+          "required": true
+        },
+        "otel-collector": {
+          "condition": "service_started",
+          "required": true
+        },
+        "seq": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "MH_SEED_TENANT_EMAIL": "",
+        "MH_SEED_TENANT_ID": "",
+        "MONGO_CONNECTION_STRING": "mongodb://mulberryheron:REDACTED-PASSWORD@ferretdb:27017/",
+        "MONGO_DATABASE": "mulberryheron",
+        "OIDC_AUDIENCE": "heron",
+        "OIDC_AUTHORITY": "https://auth.example.org/realms/crimsonraven",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4317",
+        "PHOTO_FS_ROOT": "/data/photos",
+        "PHOTO_S3_ACCESS_KEY": "",
+        "PHOTO_S3_BUCKET": "mulberryheron-photos",
+        "PHOTO_S3_ENDPOINT": "",
+        "PHOTO_S3_SECRET": "",
+        "PHOTO_S3_SECURE": "true",
+        "PHOTO_STORAGE": "filesystem",
+        "PUBLIC_BASE_URL": "https://heron.example.org",
+        "SEQ_URL": "http://seq:80"
+      },
+      "image": "ghcr.io/ofbirds/heron:prod",
+      "networks": {
+        "internal": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 8080,
+          "published": "9324",
+          "protocol": "tcp"
+        }
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "photos",
+          "target": "/data/photos",
+          "volume": {}
+        }
+      ]
+    },
+    "aspire-dashboard": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS": "true"
+      },
+      "image": "mcr.microsoft.com/dotnet/aspire-dashboard:9.0",
+      "networks": {
+        "internal": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 18888,
+          "published": "9344",
+          "protocol": "tcp"
+        }
+      ],
+      "restart": "unless-stopped"
+    },
+    "ferretdb": {
+      "command": null,
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "FERRETDB_POSTGRESQL_URL": "postgres://mulberryheron:REDACTED-PASSWORD@postgres:5432/postgres"
+      },
+      "image": "ghcr.io/ferretdb/ferretdb:2",
+      "networks": {
+        "internal": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 27017,
+          "published": "27118",
+          "protocol": "tcp"
+        }
+      ],
+      "restart": "unless-stopped"
+    },
+    "otel-collector": {
+      "command": [
+        "--config=/etc/otelcol/config.yaml"
+      ],
+      "entrypoint": null,
+      "image": "otel/opentelemetry-collector-contrib:0.119.0",
+      "networks": {
+        "internal": null
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/home/at/actions-runner-mulberryheron/_work/MulberryHeron/MulberryHeron/deploy/otel-collector.yaml",
+          "target": "/etc/otelcol/config.yaml",
+          "read_only": true,
+          "bind": {}
+        }
+      ]
+    },
+    "postgres": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "POSTGRES_DB": "postgres",
+        "POSTGRES_PASSWORD": "REDACTED-PASSWORD",
+        "POSTGRES_USER": "mulberryheron"
+      },
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U mulberryheron -d postgres"
+        ],
+        "timeout": "5s",
+        "interval": "10s",
+        "retries": 10
+      },
+      "image": "ghcr.io/ferretdb/postgres-documentdb:17",
+      "networks": {
+        "internal": null
+      },
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "pgdata",
+          "target": "/var/lib/postgresql/data",
+          "volume": {}
+        }
+      ]
+    },
+    "seq": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "ACCEPT_EULA": "Y",
+        "SEQ_FIRSTRUN_NOAUTHENTICATION": "true"
+      },
+      "image": "datalust/seq:latest",
+      "networks": {
+        "internal": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 80,
+          "published": "9334",
+          "protocol": "tcp"
+        }
+      ],
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "seqdata",
+          "target": "/data",
+          "volume": {}
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "pgdata": {
+      "name": "mulberryheron-prod_pgdata"
+    },
+    "photos": {
+      "name": "mulberryheron-prod_photos"
+    },
+    "seqdata": {
+      "name": "mulberryheron-prod_seqdata"
+    }
+  }
+}

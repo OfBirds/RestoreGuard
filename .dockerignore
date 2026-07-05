@@ -1,0 +1,8 @@
+.git
+nupkg
+dist
+publish*
+**/bin
+**/obj
+tests
+docs

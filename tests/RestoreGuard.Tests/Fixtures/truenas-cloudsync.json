@@ -1,0 +1,247 @@
+﻿[
+    {
+        "id":  1,
+        "description":  "Google Drive - /mnt/ssd_pool_one/backups",
+        "path":  "/mnt/ssd_pool_one/backups",
+        "direction":  "PULL",
+        "enabled":  true,
+        "schedule":  {
+                         "minute":  "15",
+                         "hour":  "2",
+                         "dom":  "*",
+                         "month":  "*",
+                         "dow":  "*"
+                     },
+        "attributes":  {
+                           "folder":  "truenas1/backups",
+                           "fast_list":  false,
+                           "acknowledge_abuse":  false
+                       },
+        "job":  {
+                    "id":  22450,
+                    "method":  "cloudsync.sync",
+                    "arguments":  [
+                                      1
+                                  ],
+                    "transient":  false,
+                    "description":  null,
+                    "abortable":  true,
+                    "logs_path":  "/var/log/jobs/22450.log",
+                    "logs_excerpt":  "REDACTED",
+                    "progress":  {
+                                     "percent":  100,
+                                     "description":  "Starting",
+                                     "extra":  null
+                                 },
+                    "result":  null,
+                    "result_encoding_error":  null,
+                    "error":  null,
+                    "exception":  null,
+                    "exc_info":  null,
+                    "state":  "SUCCESS",
+                    "time_started":  {
+                                         "$date":  1783124101000
+                                     },
+                    "time_finished":  {
+                                          "$date":  1783124104000
+                                      },
+                    "credentials":  null
+                }
+    },
+    {
+        "id":  2,
+        "description":  "PUSH management (excl system) -\u003e GDrive",
+        "path":  "/mnt/ssd_pool_one/management",
+        "direction":  "PUSH",
+        "enabled":  true,
+        "schedule":  {
+                         "minute":  "0",
+                         "hour":  "3",
+                         "dom":  "*",
+                         "month":  "*",
+                         "dow":  "*"
+                     },
+        "attributes":  {
+                           "folder":  "truenas1/management",
+                           "acknowledge_abuse":  false,
+                           "fast_list":  false
+                       },
+        "job":  {
+                    "id":  22543,
+                    "method":  "cloudsync.sync",
+                    "arguments":  [
+                                      2
+                                  ],
+                    "transient":  false,
+                    "description":  null,
+                    "abortable":  true,
+                    "logs_path":  "/var/log/jobs/22543.log",
+                    "logs_excerpt":  "REDACTED",
+                    "progress":  {
+                                     "percent":  100,
+                                     "description":  "23 / 23, 9.958 MiB / 9.958 MiB, 2.752 KiB/s, ETA 0s, checks: 15500 / 15500",
+                                     "extra":  null
+                                 },
+                    "result":  null,
+                    "result_encoding_error":  null,
+                    "error":  null,
+                    "exception":  null,
+                    "exc_info":  null,
+                    "state":  "SUCCESS",
+                    "time_started":  {
+                                         "$date":  1783126802000
+                                     },
+                    "time_finished":  {
+                                          "$date":  1783127627000
+                                      },
+                    "credentials":  null
+                }
+    },
+    {
+        "id":  3,
+        "description":  "PUSH files (excl media) -\u003e GDrive",
+        "path":  "/mnt/ssd_pool_one/files",
+        "direction":  "PUSH",
+        "enabled":  true,
+        "schedule":  {
+                         "minute":  "30",
+                         "hour":  "3",
+                         "dom":  "*",
+                         "month":  "*",
+                         "dow":  "*"
+                     },
+        "attributes":  {
+                           "folder":  "truenas1/files",
+                           "acknowledge_abuse":  false,
+                           "fast_list":  false
+                       },
+        "job":  {
+                    "id":  22606,
+                    "method":  "cloudsync.sync",
+                    "arguments":  [
+                                      3
+                                  ],
+                    "transient":  false,
+                    "description":  null,
+                    "abortable":  true,
+                    "logs_path":  "/var/log/jobs/22606.log",
+                    "logs_excerpt":  "REDACTED",
+                    "progress":  {
+                                     "percent":  100,
+                                     "description":  "16 / 16, 13.606 MiB / 13.606 MiB, 10.430 KiB/s, ETA 0s, checks: 4857 / 4857",
+                                     "extra":  null
+                                 },
+                    "result":  null,
+                    "result_encoding_error":  null,
+                    "error":  null,
+                    "exception":  null,
+                    "exc_info":  null,
+                    "state":  "SUCCESS",
+                    "time_started":  {
+                                         "$date":  1783128601000
+                                     },
+                    "time_finished":  {
+                                          "$date":  1783128701000
+                                      },
+                    "credentials":  null
+                }
+    },
+    {
+        "id":  4,
+        "description":  "PUSH backups dataset -\u003e GDrive",
+        "path":  "/mnt/ssd_pool_one/backups",
+        "direction":  "PUSH",
+        "enabled":  true,
+        "schedule":  {
+                         "minute":  "0",
+                         "hour":  "4",
+                         "dom":  "*",
+                         "month":  "*",
+                         "dow":  "*"
+                     },
+        "attributes":  {
+                           "folder":  "truenas1/backups-dataset",
+                           "acknowledge_abuse":  false,
+                           "fast_list":  false
+                       },
+        "job":  {
+                    "id":  22671,
+                    "method":  "cloudsync.sync",
+                    "arguments":  [
+                                      4
+                                  ],
+                    "transient":  false,
+                    "description":  null,
+                    "abortable":  true,
+                    "logs_path":  "/var/log/jobs/22671.log",
+                    "logs_excerpt":  "REDACTED",
+                    "progress":  {
+                                     "percent":  100,
+                                     "description":  "Starting",
+                                     "extra":  null
+                                 },
+                    "result":  null,
+                    "result_encoding_error":  null,
+                    "error":  null,
+                    "exception":  null,
+                    "exc_info":  null,
+                    "state":  "SUCCESS",
+                    "time_started":  {
+                                         "$date":  1783130401000
+                                     },
+                    "time_finished":  {
+                                          "$date":  1783130441000
+                                      },
+                    "credentials":  null
+                }
+    },
+    {
+        "id":  5,
+        "description":  "PUSH misc -\u003e GDrive",
+        "path":  "/mnt/ssd_pool_one/misc",
+        "direction":  "PUSH",
+        "enabled":  true,
+        "schedule":  {
+                         "minute":  "30",
+                         "hour":  "4",
+                         "dom":  "*",
+                         "month":  "*",
+                         "dow":  "*"
+                     },
+        "attributes":  {
+                           "folder":  "truenas1/misc",
+                           "fast_list":  false,
+                           "acknowledge_abuse":  false
+                       },
+        "job":  {
+                    "id":  22736,
+                    "method":  "cloudsync.sync",
+                    "arguments":  [
+                                      5
+                                  ],
+                    "transient":  false,
+                    "description":  null,
+                    "abortable":  true,
+                    "logs_path":  "/var/log/jobs/22736.log",
+                    "logs_excerpt":  "REDACTED",
+                    "progress":  {
+                                     "percent":  100,
+                                     "description":  "2 / 2, 1.921 KiB / 1.921 KiB, 655 B/s, ETA 0s, checks: 26 / 26",
+                                     "extra":  null
+                                 },
+                    "result":  null,
+                    "result_encoding_error":  null,
+                    "error":  null,
+                    "exception":  null,
+                    "exc_info":  null,
+                    "state":  "SUCCESS",
+                    "time_started":  {
+                                         "$date":  1783132201000
+                                     },
+                    "time_finished":  {
+                                          "$date":  1783132243000
+                                      },
+                    "credentials":  null
+                }
+    }
+]

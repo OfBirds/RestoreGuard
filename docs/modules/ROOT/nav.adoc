@@ -1,0 +1,8 @@
+* xref:index.adoc[What is Greylag Goose?]
+* Auditing your backups
+** xref:getting-started.adoc[Getting started]
+** xref:checks.adoc[What gets checked]
+** xref:suppressions.adoc[Suppressions]
+** xref:automation.adoc[Automation & JSON output]
+* Reference
+** xref:configuration.adoc[Configuration reference]

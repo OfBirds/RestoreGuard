@@ -1,0 +1,141 @@
+= Getting started
+
+Greylag Goose is a single self-contained CLI called `restoreguard` (the app's
+technical name — see xref:index.adoc[the naming note]). It runs on the machine
+you administrate *from* — your laptop, a small always-on box, anywhere with SSH
+access to your lab. Nothing is installed on the audited machines.
+
+== Before you install: SSH is the only prerequisite
+
+The audit connects to your machines over plain `ssh` with *key-based,
+passwordless* auth, exactly as you would by hand. Two rules, both enforced by
+the built-in preflight (`restoreguard doctor`):
+
+* Every host you audit should be an *alias in `~/.ssh/config`* pointing at the
+  right user and key. Aliases beat `user@host` forms because they pick up
+  non-default keys automatically.
+* The audit runs `ssh -o BatchMode=yes`, which *cannot answer prompts*. So the
+  key must be passphrase-free or served by an agent, and you must *connect to
+  each host once manually first* so its host key lands in `known_hosts`.
+
+A typical `~/.ssh/config` entry:
+
+[source]
+----
+Host mypve
+    HostName 10.0.0.5
+    User root
+    IdentityFile ~/.ssh/id_ed25519_homelab
+----
+
+What the SSH user needs *on each audited host* depends on which sections you
+enable — the table in the xref:configuration.adoc[configuration reference]
+lists it per section, and `restoreguard doctor` verifies every requirement and
+tells you exactly what is missing.
+
+== Install
+
+No .NET runtime is required — the released binaries are fully self-contained.
+Pick whichever route fits:
+
+.One-liner installer (Linux, macOS)
+[source,shell]
+----
+curl -fsSL https://raw.githubusercontent.com/OfBirds/RestoreGuard/main/scripts/install.sh | sh
+----
+Detects your OS/arch and installs to `~/.local/bin`.
+
+.Debian / Ubuntu package
+[source,shell]
+----
+sudo dpkg -i restoreguard_<version>_amd64.deb   # from the GitHub releases page
+----
+
+.Docker
+[source,shell]
+----
+docker run --rm \
+  -v ~/.ssh:/root/.ssh:ro \
+  -v "$PWD":/work \
+  ghcr.io/ofbirds/restoreguard doctor
+----
+Mount your SSH setup read-only and a working directory holding your
+`restoreguard.json`; `/work` is the container's working directory, so config
+discovery behaves exactly as on a host install.
+
+.Windows / manual
+Grab the `zip`/`tar.gz` for your platform from the
+https://github.com/OfBirds/RestoreGuard/releases[releases page] and put the
+binary on your `PATH`.
+
+.For .NET people
+[source,shell]
+----
+dotnet tool install -g RestoreGuard
+----
+
+[TIP]
+If your `dotnet` came from a manual install rather than a package manager,
+the global-tool route needs `DOTNET_ROOT` exported and `~/.dotnet/tools` on
+`PATH`. The standalone binaries, deb, and Docker image need none of this.
+
+== First run: the wizard
+
+Run the bare command in the directory where you want your config to live:
+
+[source,shell]
+----
+restoreguard
+----
+
+On a first run (no `restoreguard.json` present) this starts a *guided setup
+wizard*. It walks through each audit surface, one at a time, and every question
+shows an example answer. Two things make it forgiving:
+
+* *Everything is optional.* Press kbd:[Enter] on a section you don't have and
+  it is skipped — you can rerun setup later to add it.
+* *It probes as you type.* Each SSH destination is tested live the moment you
+  enter it, and content answers (dump directories, PVE storages, TrueNAS
+  datasets, SMART capability) are verified against the actual host before the
+  wizard moves on. You cannot end up with a config that points nowhere.
+
+The wizard writes `restoreguard.json`. After that, the bare `restoreguard`
+command shows a small menu instead: run the audit, run the doctor, print JSON,
+revisit setup, quit.
+
+== Check the plumbing: `doctor`
+
+[source,shell]
+----
+restoreguard doctor
+----
+
+The doctor is a *preflight*, not an audit: it verifies every requirement your
+config implies — SSH reachability per alias, Docker and compose availability,
+readable dump directories, `pvesh`/`midclt`/`smartctl` presence, repository
+access for restic/borg/kopia, and so on — and prints a per-host pass/fail list
+with a hint for each failure. Run it after setup and any time something in the
+lab changes.
+
+== Run your first audit
+
+[source,shell]
+----
+restoreguard audit
+----
+
+The audit connects to everything in the config (read-only), cross-checks the
+declared state against the live state, and prints the report: findings grouped
+by severity, then suppressed findings, then the active suppression list.
+
+* *RED* — a service would not survive a restore today: no backup, stale backup,
+  empty dump, wrong dump method, drifted mount. Act on these.
+* *YELLOW* — hygiene and early warnings: capacity thresholds, overdue scrubs,
+  stale compose configs, expired suppressions. Schedule these.
+* *GREEN* — checked and healthy.
+
+Findings you have consciously decided to accept can be silenced — with a
+reason, an owner date, and an expiry — via xref:suppressions.adoc[suppressions].
+
+When the report looks right, wire it into cron or a systemd timer with
+`--json` and the exit codes — see xref:automation.adoc[Automation & JSON output].

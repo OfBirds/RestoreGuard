@@ -1,0 +1,58 @@
+= Suppressions
+
+Some findings are *conscious decisions*, not problems: a staging database you
+deliberately don't dump, a circular self-backup you exclude, a capacity warning
+you have already planned around. Suppressions let you silence those — loudly.
+
+The design goal: *a suppression must never become a silent hole.* Every
+suppression carries a reason and an owner date, appears in every report, and is
+itself audited (see <<hygiene>>).
+
+== The file
+
+`suppressions.json` (path set by `suppressionsFile` in the config) is a JSON
+list:
+
+[source,json]
+----
+[
+  {
+    "host": "mydockerhost",
+    "service": "myapp-staging-postgres-1",
+    "ruleId": "db-backup/uncovered",
+    "reason": "staging data is disposable by policy",
+    "decidedOn": "2026-06-29",
+    "expires": "2026-12-31",
+    "retriggerCondition": "revisit if staging starts holding real data"
+  }
+]
+----
+
+[cols="1,3"]
+|===
+| `host` / `service` / `ruleId` | what is being suppressed — the exact rule id from xref:checks.adoc[the rule catalog], on that service, on that host
+| `reason` | why this is acceptable — written for the future you who forgot
+| `decidedOn` | when the decision was made
+| `expires` _(optional)_ | review date; after it, the suppression stops working and surfaces as a finding
+| `retriggerCondition` _(optional)_ | a note describing what should reopen the decision
+|===
+
+== What a suppressed finding looks like
+
+Suppressed findings are *not dropped*. Every audit report — text and JSON —
+contains three lists: active findings, suppressed findings, and the active
+suppression list itself. You always see what you have chosen not to see.
+
+[[hygiene]]
+== Suppression hygiene — they can't rot
+
+Two always-on rules audit the suppression list itself:
+
+* `suppression/expired` — the `expires` date has passed. The suppression no
+  longer applies; the underlying finding (if still real) is back in the report,
+  plus this reminder to re-decide.
+* `suppression/unknown-target` — the host/service a suppression points at no
+  longer exists. Either the service was renamed (and the *new* name is now
+  unprotected and unaudited by your old decision) or the entry is dead weight.
+
+Both are YELLOW and — deliberately — *cannot themselves be suppressed*.

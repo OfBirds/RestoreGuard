@@ -1,0 +1,218 @@
+= Configuration reference
+
+Everything lives in one file, `restoreguard.json`, in the directory you run
+from (or pass `-c/--config <path>`). This page explains each section; the
+<<full-sample,complete annotated sample>> at the bottom is a copy-paste
+starting point (it also ships in the repo as `restoreguard.sample.json`).
+
+Three global rules:
+
+* *Every section is optional.* A check only runs when its section is present.
+  Start with one section and grow.
+* *Hosts are SSH aliases* from the operator machine's `~/.ssh/config`
+  (key-based auth — see xref:getting-started.adoc[Getting started]).
+* *Comments and trailing commas are allowed* in the file, so you can annotate
+  your own config.
+
+The guided wizard (bare `restoreguard` on first run, or the setup menu entry)
+writes the common sections for you, with live validation. The sections it
+doesn't cover are marked below — add those by hand from the sample.
+
+== `dockerHosts` — mount drift & stale configs
+
+[source,json]
+----
+"dockerHosts": [
+  { "alias": "mydockerhost", "dockerPath": "docker" },
+  { "alias": "myotherhost", "dockerPath": "/usr/bin/docker" }
+]
+----
+
+Audits every running container: declared compose bind-mounts/volumes vs. what
+is actually mounted, and whether the container still matches its current
+compose file (stale config). Use an absolute `dockerPath` when docker isn't in
+the SSH user's `PATH`.
+
+*Host needs:* Docker daemon access (root or the `docker` group), compose
+plugin ≥ 2.17, read access to the compose project directories and env files.
+
+== `logicalDbBackups` — database dump jobs
+
+[source,json]
+----
+"logicalDbBackups": [
+  {
+    "host": "mydockerhost",
+    "path": "/var/backups/db-prod",
+    "coversHosts": ["mydockerhost"],
+    "maxDumpAgeHours": 26,
+    "method": "pg_dumpall",
+    "requireProdNaming": true
+  }
+]
+----
+
+A list — one entry per dump job you run. Dump files are expected to be named
+`<container>_<yyyyMMdd>.sql.gz`.
+
+[cols="1,3"]
+|===
+| `host` / `path` | where the dump files land (checked over SSH)
+| `coversHosts` | which `dockerHosts`' database containers this job is responsible for
+| `maxDumpAgeHours` | freshness limit; `26` suits a nightly job with margin
+| `method` | what the job runs: `pg_dumpall`, `mysqldump`, or `mongodump`. A container whose *engine* needs a different method is a RED — a `pg_dumpall` of a MariaDB "succeeds" but is unrestorable
+| `requireProdNaming` | `true` mirrors jobs that dump only containers named `prod` (skipping `staging`) and flags unmatched ones for review; `false` expects a dump for *every* running DB container
+|===
+
+*Host needs:* read access to the dump directory.
+
+== `pveNodes` — Proxmox image backups
+
+[source,json]
+----
+"pveNodes": [
+  { "alias": "mypve", "node": "pve", "backupStorages": ["pbs-datastore", "local-dumps"] }
+],
+"pbsMaxSnapshotAgeHours": 26
+----
+
+Checks that every VM/LXC on the node has a fresh image backup.
+`backupStorages` lists PBS datastores *and* plain vzdump directory storages —
+the storage type decides the tier, and either counts as coverage.
+
+[IMPORTANT]
+If several nodes share one PBS datastore, list that datastore on *exactly one*
+node — otherwise the same backups are counted twice.
+
+*Host needs:* root on the PVE node (`pvesh`).
+
+== `fileBackups` — restic, borg, kopia, snapper, dir, Home Assistant
+
+[source,json]
+----
+"fileBackups": [
+  { "name": "restic app configs", "kind": "restic", "alias": "mydockerhost",
+    "repo": "/mnt/nas/restic-repo", "passwordFile": "/root/.restic-pass", "maxAgeHours": 26 },
+  { "name": "borg system configs", "kind": "borg", "alias": "myotherhost",
+    "repo": "/var/backups/borg", "passwordFile": "/root/.borg-pass", "maxAgeHours": 26 },
+  { "name": "kopia snapshots", "kind": "kopia", "alias": "mydockerhost", "maxAgeHours": 26 },
+  { "name": "btrfs snapshots (snapper)", "kind": "snapper", "alias": "myotherhost",
+    "snapperConfig": "root", "maxAgeHours": 26 },
+  { "name": "volume tarballs", "kind": "dir", "alias": "myotherhost",
+    "path": "/opt/volume-backups", "maxAgeHours": 26 },
+  { "name": "home-assistant full backup", "kind": "haos", "alias": "mypve",
+    "vmid": 9000, "maxAgeHours": 192 }
+]
+----
+
+One entry per backup source; each configured source *must* produce artifacts —
+an empty repository or directory is a RED, not a shrug. Per kind:
+
+[cols="1,2,2"]
+|===
+| Kind | Extra fields | Host needs
+
+| `restic` | `repo`, `passwordFile` | repo + password file readable on the host — the secret never leaves it
+| `borg` | `repo`, `passwordFile` | repo + passphrase file readable on the host
+| `kopia` | — | connect the host to its repo once (`kopia repository connect …`); kopia keeps the connection and password itself, so listing needs no secret in the config
+| `snapper` | `snapperConfig` | snapper installed, the named config existing (btrfs)
+| `dir` | `path` | a readable directory of archive files (e.g. offen/docker-volume-backup tarballs)
+| `haos` | `vmid` | Home Assistant OS full backups, read via the Proxmox qemu guest agent: agent enabled in the HA VM, root on its PVE host
+|===
+
+== `trueNas` — ZFS snapshots, cloud sync, pools
+
+[source,json]
+----
+"trueNas": {
+  "alias": "mytruenas",
+  "excludeDatasets": [],
+  "maxSnapshotAgeHours": 26,
+  "maxSyncAgeHours": 26
+}
+----
+
+Pool health and scrub age, per-dataset capacity, snapshot freshness, cloud-sync
+task state, and top-level datasets that never leave the box. `excludeDatasets`
+are dropped before they enter the model at all — use it for datasets that are
+intentionally not audited.
+
+*Host needs:* a TrueNAS SCALE admin user (`midclt call`, read-only queries).
+
+== `pbsOffsite` — off-site copy of the PBS datastore *(hand-edited)*
+
+[source,json]
+----
+"pbsOffsite": {
+  "alias": "mypve",
+  "logPath": "/var/log/pbs-sync.log",
+  "rcloneRemote": "remote:",
+  "targetName": "pbs-datastore",
+  "maxSyncAgeHours": 26
+}
+----
+
+For labs that sync the PBS datastore off-site with an rclone wrapper script.
+The script's log must mark runs with `=== <ts> sync start ===` /
+`=== sync finished rc=N ===` lines; occupancy of the remote comes from
+`rclone about`.
+
+*Host needs:* read access to the log; the host's rclone remote must
+authenticate non-interactively.
+
+== `pbsMaintenance` — PBS GC & verification *(hand-edited)*
+
+[source,json]
+----
+"pbsMaintenance": {
+  "execAlias": "mypve",
+  "containerId": 110,
+  "datastore": "main",
+  "host": "pve",
+  "maxGcAgeDays": 7,
+  "maxVerifyAgeHours": 50
+}
+----
+
+The hygiene the PBS UI won't nag you about: garbage collection has run
+recently, verify jobs exist, and the *last completed verification passed* and
+is fresh. A failed verification means corrupted chunks — that is a RED. Read by
+running `proxmox-backup-manager` inside the PBS container from its PVE host
+(`pct exec`), so no PBS API token is needed.
+
+*Host needs:* root on the PVE host that runs the PBS container.
+
+== `smartHosts` — physical disk health
+
+[source,json]
+----
+"smartHosts": ["mypve"]
+----
+
+SMART overall-health per disk. List the machines that *own the physical disks*
+— hypervisors and bare-metal boxes. A virtualized NAS only sees virtual disks,
+so probe its host instead.
+
+*Host needs:* root (raw device access), `smartmontools` installed.
+
+== `suppressionsFile`
+
+[source,json]
+----
+"suppressionsFile": "suppressions.json"
+----
+
+Path to the xref:suppressions.adoc[suppressions] list, relative to the config
+file.
+
+[[full-sample]]
+== The full annotated sample
+
+Comments and trailing commas are allowed, so this works as-is — save it as
+`restoreguard.json`, delete the sections you don't have, and replace the
+placeholder aliases:
+
+[source,json]
+----
+include::example$restoreguard.sample.json[]
+----

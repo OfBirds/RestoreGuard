@@ -1,0 +1,74 @@
+= What is Greylag Goose?
+
+Greylag Goose is a *backup auditor* for homelabs. It does not make backups —
+it checks, every day if you like, that the backups you already make would
+actually save you: that every service is covered, that the dumps are fresh and
+not empty, that the bind-mount your backup job reads is still the one your
+container writes to, and that the off-site copy isn't silently failing.
+
+The name comes from the watch-bird: the sacred geese of Juno, whose alarm woke
+the defenders and saved Rome from the night attack on the Capitol. That is the
+whole job description — notice the quiet failure *before* the disaster does.
+
+[NOTE]
+.One app, two names
+====
+*Greylag Goose* is the product name in the https://ofbirds.org[ofbirds.org]
+flock. *RestoreGuard* is its technical name, and it is what you will see
+everywhere in the tooling: the GitHub repo
+(https://github.com/OfBirds/RestoreGuard[OfBirds/RestoreGuard]), the container
+image (`ghcr.io/ofbirds/restoreguard`), the NuGet package (`RestoreGuard`), and
+the command you actually type — `restoreguard`. Same app; don't let the two
+names confuse you.
+====
+
+It is part of the ofbirds flock and follows the flock's rules:
+
+* *Your data stays yours.* The audit is *strictly read-only* — nothing is ever
+  written to any machine it inspects. It stores no credentials of its own; it
+  rides on the SSH keys and aliases you already have.
+* *Runnable on your own box.* There is no hosted service and nothing to sign up
+  for: it is a single CLI you run on your own machine, free software under
+  AGPL-3.0.
+
+== The failure it exists to catch
+
+Backup jobs almost never fail loudly. They fail like this:
+
+* a compose refactor renames a bind-mount, and the nightly job keeps faithfully
+  archiving an *empty directory* for months;
+* a database moves to a new container image, and the old dump command still
+  "succeeds" — producing a file that *cannot be restored*;
+* a new service goes live and *nobody adds it* to any backup job;
+* the off-site target fills up and starts *rejecting snapshots*, while the local
+  job keeps reporting green.
+
+Every one of these looks fine until the day you need the backup. Greylag Goose
+cross-checks what your backups *claim* against what your infrastructure
+*actually is*, and prints a *RED/YELLOW/GREEN report per service*.
+
+== What it can audit
+
+All of these are optional — you configure only the parts your lab has (see the
+xref:configuration.adoc[configuration reference]):
+
+* *Docker* — declared compose mounts vs. live container mounts (mount drift),
+  and containers running a stale compose config.
+* *Logical database dumps* — freshness, size, coverage of every live database
+  container, and *method mismatch* (the right dump tool for the engine).
+* *Proxmox VE / PBS / vzdump* — every VM and container covered by a fresh image
+  backup; PBS garbage collection and verification actually running and passing.
+* *File-level backup tools* — restic, borg, kopia, snapper (btrfs), Home
+  Assistant OS backups, or a plain directory of archives.
+* *TrueNAS SCALE* — ZFS snapshot freshness, cloud-sync task health, datasets
+  that never leave the box, pool health and scrub age.
+* *Off-site copies* — the sync ran, succeeded, and the destination has room.
+* *Disks* — SMART health on the machines that own the physical disks.
+
+The full rule catalog is in xref:checks.adoc[What gets checked].
+
+== Ready to try it?
+
+Start with xref:getting-started.adoc[Getting started] — install one binary,
+answer the guided setup wizard's questions, and run your first audit in a few
+minutes.

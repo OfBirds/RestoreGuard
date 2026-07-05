@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RestoreGuard.Checks/RestoreGuard.Checks.csproj" />
+    <Project Path="src/RestoreGuard.Cli/RestoreGuard.Cli.csproj" />
+    <Project Path="src/RestoreGuard.Core/RestoreGuard.Core.csproj" />
+    <Project Path="src/RestoreGuard.Providers/RestoreGuard.Providers.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RestoreGuard.Tests/RestoreGuard.Tests.csproj" />
+  </Folder>
+</Solution>

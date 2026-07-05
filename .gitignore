@@ -1,0 +1,30 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Rider / VS Code
+.idea/
+.vscode/
+
+# Test results / coverage
+[Tt]est[Rr]esults/
+*.trx
+coverage*
+
+# Secrets / local config (never commit homelab creds)
+*.env
+appsettings.*.local.json
+secrets.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
+nupkg/
+
+# Local audit configs (lab-specific; the dogfood ones live in the private lab repo)
+restoreguard.json
+suppressions.json
+*.bak
