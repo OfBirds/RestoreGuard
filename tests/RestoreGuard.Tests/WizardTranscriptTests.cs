@@ -70,6 +70,8 @@ public class WizardTranscriptTests
                 "s", "nas", "", "", "",                      // snapper (default config 'root')
                 "h", "pve", "9000", "", "",                  // home assistant
                 "",                                          // file backups: done
+                "y", "nas", "/backups/appdata", "",          // sqlite scan: clean folder, name default
+                "",                                          // sqlite: done
                 "hypervisor", "",                            // smart + done
             ]),
 
@@ -114,6 +116,9 @@ public class WizardTranscriptTests
                 "two days", "",                              // hours garbage -> re-asked -> Enter = default
                 "x",                                         // unknown file-backup kind
                 "",                                          // file backups: done
+                "y", "nas", "/nope", "n", "",                // sqlite: bad folder -> skipped
+                "nas", "/backups/appdata-live", "",          // retry: 2 hot-copy hits (warned, still added)
+                "",                                          // sqlite: done
                 "truenas", "n",                              // smart: smartmontools missing -> don't add
                 "nas", "n",                                  // smart: no physical disks -> don't add
                 "hypervisor", "",                            // smart: fine + done
@@ -133,6 +138,7 @@ public class WizardTranscriptTests
                 "n",                                         // zfs: no
                 "n",                                         // offsite: no
                 "",                                          // file backups: skip
+                "n",                                         // sqlite: no
                 "",                                          // smart: skip
             ]),
     };

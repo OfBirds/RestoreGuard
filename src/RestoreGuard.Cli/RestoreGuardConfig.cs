@@ -17,7 +17,8 @@ public sealed record RestoreGuardConfig(
     IReadOnlyList<RestoreGuard.Providers.FileBackups.FileBackupSource>? FileBackups,
     string? SuppressionsFile,
     IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null,
-    IReadOnlyList<RestoreGuard.Providers.Offsite.OffsiteJobConfig>? OffsiteJobs = null)
+    IReadOnlyList<RestoreGuard.Providers.Offsite.OffsiteJobConfig>? OffsiteJobs = null,
+    IReadOnlyList<RestoreGuard.Providers.Sqlite.SqliteBackupDirConfig>? SqliteBackupDirs = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -114,6 +115,13 @@ public sealed record RestoreGuardConfig(
             if (string.IsNullOrWhiteSpace(o.Name)) errors.Add($"offsiteJobs[{i}].name is empty.");
             if (string.IsNullOrWhiteSpace(o.Alias)) errors.Add($"offsiteJobs[{i}].alias is empty.");
             if (string.IsNullOrWhiteSpace(o.LogPath)) errors.Add($"offsiteJobs[{i}].logPath is empty.");
+        }
+
+        foreach (var (s, i) in (SqliteBackupDirs ?? []).Select((s, i) => (s, i)))
+        {
+            if (string.IsNullOrWhiteSpace(s.Name)) errors.Add($"sqliteBackupDirs[{i}].name is empty.");
+            if (string.IsNullOrWhiteSpace(s.Alias)) errors.Add($"sqliteBackupDirs[{i}].alias is empty.");
+            if (string.IsNullOrWhiteSpace(s.Path)) errors.Add($"sqliteBackupDirs[{i}].path is empty.");
         }
 
         if (PbsOffsite is { } off && string.IsNullOrWhiteSpace(off.Alias))

@@ -73,6 +73,10 @@ public static class AuditRunner
         var zfsTasks = (config.ZfsReplications ?? [])
             .Select(z => Track("zfs", $"{z.SourceAlias} ({z.Name})", zfsProvider.GetAsync(z)))
             .ToList();
+        var sqliteProvider = new Providers.Sqlite.SqliteBackupProvider(ssh);
+        var sqliteTasks = (config.SqliteBackupDirs ?? [])
+            .Select(s => Track("sqlite", $"{s.Alias} ({s.Name})", sqliteProvider.GetAsync(s)))
+            .ToList();
 
         Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
 
@@ -177,6 +181,13 @@ public static class AuditRunner
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
+        var sqliteScans = new List<SqliteHotCopyScan>();
+        foreach (var (host, scan, error) in sqliteTasks.Select(t => t.Result))
+        {
+            if (scan is not null) sqliteScans.Add(scan);
+            if (error is not null) providerErrors.Add($"{host}: {error}");
+        }
+
         var inventory = new LabInventory(DateTimeOffset.UtcNow, services, artifacts, storage);
 
         List<ICheck> checks = [new MountDriftCheck(), new ConfigDriftCheck(), new StorageCapacityCheck(new StorageCapacityOptions())];
@@ -225,6 +236,10 @@ public static class AuditRunner
         if (canaries.Count > 0)
         {
             checks.Add(new RestoreCanaryCheck(canaries));
+        }
+        if (sqliteScans.Count > 0)
+        {
+            checks.Add(new SqliteHotCopyCheck(sqliteScans));
         }
         if (zfsStates.Count > 0 && config.ZfsReplications is { } zrs)
         {

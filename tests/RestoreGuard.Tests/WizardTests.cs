@@ -32,6 +32,7 @@ public class WizardTests : IDisposable
             "y", "truenas", "tank/private", "",   // truenas + one excluded dataset
             "n", "n",                             // zfs: no, offsite: no
             "",                                   // file backups: skip
+            "n",                                  // sqlite: no
             "hypervisor", "");                    // smart: one good host, done
 
         Assert.True(ok);
@@ -291,6 +292,7 @@ public class WizardTests : IDisposable
             "nas", "", "",
             "n", "n", "n", "n", "n",
             "",                                   // file backups: skip
+            "n",                                  // sqlite: no
             "truenas", "n",                       // ssh ok, but missing-tool -> don't add
             "hypervisor", "");                    // fine
 
@@ -306,6 +308,7 @@ public class WizardTests : IDisposable
             "nas", "", "",
             "n", "n", "n", "n", "n",
             "",                                   // file backups: skip
+            "n",                                  // sqlite: no
             "nas", "n", "");                      // ssh ok, no disks -> don't add
 
         Assert.True(ok);
@@ -448,6 +451,44 @@ public class WizardTests : IDisposable
         var config = RestoreGuardConfig.Load(ConfigPath);
         Assert.Null(config.ZfsReplications);
         Assert.Empty(config.Validate());
+    }
+
+    // ---------- SQLite hot-copy scans through the wizard ----------
+
+    [Fact]
+    public async Task Wizard_SqliteScanFolder_ScannedLive_HitsAreAWarningNotARejection()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n", "n", "n",
+            "",                                   // file backups: skip
+            "y",                                  // sqlite: yes
+            "nas", "/backups/appdata-live",       // dir with 2 hot-copy hits — still valid config
+            "",                                   // name default
+            "",                                   // sqlite: done
+            "");
+
+        Assert.True(ok);
+        Assert.Contains("2 WAL/SHM file(s) found: the first audit WILL flag this", output);
+        Assert.Contains("1 SQLite scan folder(s)", output);
+        var dir = Assert.Single(RestoreGuardConfig.Load(ConfigPath).SqliteBackupDirs!);
+        Assert.Equal(("nas", "/backups/appdata-live"), (dir.Alias, dir.Path));
+    }
+
+    [Fact]
+    public async Task Wizard_SqliteBadFolder_RejectedThenSkipped()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",
+            "n", "n", "n", "n", "n",
+            "",                                   // file backups: skip
+            "y", "nas", "/nope", "n", "",         // bad folder -> don't keep -> Enter -> skipped
+            "",                                   // sqlite: done
+            "");
+
+        Assert.True(ok);
+        Assert.Contains("folder not found on the host", output);
+        Assert.Contains("Skipping this folder (no path).", output);
+        Assert.Null(RestoreGuardConfig.Load(ConfigPath).SqliteBackupDirs);
     }
 
     // ---------- off-site jobs through the wizard ----------

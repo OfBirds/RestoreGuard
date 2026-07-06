@@ -127,6 +127,21 @@ that is always in the backup, like a compose or config file. Per kind:
 | `haos` | `vmid` | Home Assistant OS full backups, read via the Proxmox qemu guest agent: agent enabled in the HA VM, root on its PVE host
 |===
 
+== `sqliteBackupDirs` — SQLite hot-copy detection
+
+[source,json]
+----
+"sqliteBackupDirs": [
+  { "name": "appdata copies", "alias": "mydockerhost", "path": "/backups/appdata" }
+]
+----
+
+One entry per rsync/plain-copy backup folder of app data. The folder is scanned
+*recursively* for `-wal`/`-shm` files on every audit — finding one means the
+SQLite database next to it was copied while open (the silently-corrupt backup).
+
+*Host needs:* read access to the folder (GNU `find`).
+
 == `offsiteJobs` — rclone off-site syncs
 
 [source,json]

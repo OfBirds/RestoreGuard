@@ -77,6 +77,18 @@
     "maxSyncAgeHours": 26
   },
 
+  // SQLite hot-copy detection: rsync/plain-copy backup folders of app data
+  // (vaultwarden, *arr, Home Assistant...). Scanned RECURSIVELY for -wal/-shm
+  // files — those exist next to a database only while it is OPEN, so inside a
+  // backup they prove the .db was copied mid-write (restores may be corrupt).
+  "sqliteBackupDirs": [
+    {
+      "name": "appdata copies",
+      "alias": "mydockerhost",
+      "path": "/backups/appdata"
+    }
+  ],
+
   // Off-site sync jobs: any scheduled rclone script that logs
   // "=== <yyyy-MM-dd HH:mm> ... sync start ===" / "=== sync finished rc=N ===".
   // rcloneRemote is optional (capacity via `rclone about`; skip for backends

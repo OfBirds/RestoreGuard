@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **SQLite hot-copy detection** (`sqliteBackupDirs`): rsync/plain-copy backup
+  folders of app data are scanned recursively for `-wal`/`-shm` files — those
+  exist next to a database only while it is open, so inside a backup they prove
+  the .db was copied mid-write (`sqlite/hot-copy`, RED). Wizard scans the folder
+  live during setup; doctor preflights the path.
 - **Generic off-site sync jobs** (`offsiteJobs`): any scheduled rclone script
   that logs the documented start/finish markers — multiple jobs, optional
   capacity probe (`rcloneRemote`), and a job whose log has no runs at all is now

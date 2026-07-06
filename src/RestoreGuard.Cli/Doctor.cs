@@ -121,6 +121,13 @@ public static class Doctor
             }
         }
 
+        foreach (var s in config.SqliteBackupDirs ?? [])
+        {
+            probes.Add(new DoctorProbe(s.Alias, "sqlite",
+                $"[ -d '{s.Path}' ]",
+                $"backup directory '{s.Path}' exists ({s.Name})"));
+        }
+
         foreach (var z in config.ZfsReplications ?? [])
         {
             probes.Add(new DoctorProbe(z.SourceAlias, "zfs-replication",

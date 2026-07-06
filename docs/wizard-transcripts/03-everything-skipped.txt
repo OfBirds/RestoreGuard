@@ -55,6 +55,9 @@ Do you sync backups off-site with a scheduled rclone script? [y/N]: «n»
 --- File-level backups (restic, borg, folders of archives, Home Assistant) ---
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «Enter»
 
+--- SQLite hot-copy detection (rsync/plain-copy backups of app-data folders) ---
+Do you keep plain-copy backups of app data (vaultwarden, *arr, HA — SQLite apps)? [y/N]: «n»
+
 --- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
 SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «Enter»
 

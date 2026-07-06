@@ -559,6 +559,41 @@ public static class InteractiveMode
         }
 
         io.WriteLine();
+        io.WriteLine("--- SQLite hot-copy detection (rsync/plain-copy backups of app-data folders) ---");
+        var sqliteBackupDirs = new List<Providers.Sqlite.SqliteBackupDirConfig>();
+        if (AskYesNo(io, "Do you keep plain-copy backups of app data (vaultwarden, *arr, HA — SQLite apps)?"))
+        {
+            io.WriteLine("  A -wal/-shm file inside a backup means the database was copied while OPEN —");
+            io.WriteLine("  the classic silently-corrupt SQLite backup. Each audit rescans the folder.");
+            while (true)
+            {
+                var alias = await AskSshDestinationAsync(ssh, io,
+                    $"Backup folder #{sqliteBackupDirs.Count + 1}: SSH destination of the machine holding it (Enter = {(sqliteBackupDirs.Count == 0 ? "skip" : "done")})");
+                if (alias.Length == 0)
+                    break;
+                var path = await AskProbedAsync(io, "  backup folder to scan (recursively)", "",
+                    async p =>
+                    {
+                        var r = await ssh.RunAsync(alias, Providers.Sqlite.SqliteBackupProvider.ScanCommand(p));
+                        if (r.ExitCode != 0)
+                            return (false, "folder not found on the host — check the path");
+                        var hits = Providers.Sqlite.SqliteBackupProvider.ParseScan(r.StdOut).Count;
+                        return (true, hits == 0
+                            ? "folder scanned — no hot-copy suspects right now"
+                            : $"folder scanned — {hits} WAL/SHM file(s) found: the first audit WILL flag this (that's the point)");
+                    });
+                if (path.Length == 0)
+                {
+                    io.WriteLine("  Skipping this folder (no path).");
+                    continue;
+                }
+                sqliteBackupDirs.Add(new(
+                    Ask(io, "  a name for this folder", $"sqlite scan {alias} {path}"),
+                    alias, path));
+            }
+        }
+
+        io.WriteLine();
         io.WriteLine("--- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---");
         var smartHosts = new List<string>();
         while (true)
@@ -611,6 +646,7 @@ public static class InteractiveMode
                 + (replicated > 0 ? $" ({replicated} replicated)" : ""));
         }
         if (offsiteJobs.Count > 0) configured.Add($"{offsiteJobs.Count} off-site job(s)");
+        if (sqliteBackupDirs.Count > 0) configured.Add($"{sqliteBackupDirs.Count} SQLite scan folder(s)");
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
 
         if (configured.Count == 0)
@@ -628,7 +664,8 @@ public static class InteractiveMode
             FileBackups: fileBackups.Count > 0 ? fileBackups : null,
             SuppressionsFile: "suppressions.json",
             ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null,
-            OffsiteJobs: offsiteJobs.Count > 0 ? offsiteJobs : null);
+            OffsiteJobs: offsiteJobs.Count > 0 ? offsiteJobs : null,
+            SqliteBackupDirs: sqliteBackupDirs.Count > 0 ? sqliteBackupDirs : null);
 
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
         var suppressionsPath = Path.Combine(configDir, "suppressions.json");

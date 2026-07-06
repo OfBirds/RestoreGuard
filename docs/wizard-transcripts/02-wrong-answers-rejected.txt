@@ -176,6 +176,24 @@ Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  
   r = restic, b = borg, k = kopia, s = btrfs snapper, d = folder of archives, h = Home Assistant, Enter = done.
 Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «Enter»
 
+--- SQLite hot-copy detection (rsync/plain-copy backups of app-data folders) ---
+Do you keep plain-copy backups of app data (vaultwarden, *arr, HA — SQLite apps)? [y/N]: «y»
+  A -wal/-shm file inside a backup means the database was copied while OPEN —
+  the classic silently-corrupt SQLite backup. Each audit rescans the folder.
+Backup folder #1: SSH destination of the machine holding it (Enter = skip): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  backup folder to scan (recursively): «/nope»
+  checking ... PROBLEM — folder not found on the host — check the path
+  Keep this value anyway? [y/N]: «n»
+  backup folder to scan (recursively): «Enter»
+  Skipping this folder (no path).
+Backup folder #1: SSH destination of the machine holding it (Enter = skip): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  backup folder to scan (recursively): «/backups/appdata-live»
+  checking ... OK — folder scanned — 2 WAL/SHM file(s) found: the first audit WILL flag this (that's the point)
+  a name for this folder [sqlite scan nas /backups/appdata-live]: «Enter»
+Backup folder #2: SSH destination of the machine holding it (Enter = done): «Enter»
+
 --- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
 SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «truenas»
   testing  ssh truenas 'echo ok'  ... OK
@@ -191,7 +209,7 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
   checking for smartctl and physical disks ... OK
 SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), SMART on 1 host(s).
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
 More to add later? PBS GC/verify hygiene (pbsMaintenance) is documented
@@ -264,6 +282,13 @@ Wizard result: config written
       "logPath": "/var/log/offsite-sync.log",
       "maxSyncAgeHours": 26
     }
+  ],
+  "sqliteBackupDirs": [
+    {
+      "name": "sqlite scan nas /backups/appdata-live",
+      "alias": "nas",
+      "path": "/backups/appdata-live"
+    }
   ]
 }
 
@@ -295,9 +320,13 @@ Wizard result: config written
  25. [nas] echo ok
  26. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
  27. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
- 28. [truenas] echo ok
- 29. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 28. [nas] echo ok
+ 29. [nas] find '/nope' \( -name '*-wal' -o -name '*-shm' \) -type f -printf '%P\n' | head -50
  30. [nas] echo ok
- 31. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 32. [hypervisor] echo ok
- 33. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 31. [nas] find '/backups/appdata-live' \( -name '*-wal' -o -name '*-shm' \) -type f -printf '%P\n' | head -50
+ 32. [truenas] echo ok
+ 33. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 34. [nas] echo ok
+ 35. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 36. [hypervisor] echo ok
+ 37. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks

@@ -34,7 +34,8 @@ public class DoctorTests
         [
             new("onedrive push", "lab99", "/var/log/pbs-onedrive-sync.log", "onedrive:"),
             new("usb copy", "lab55", "/var/log/usb-sync.log"),
-        ]);
+        ],
+        SqliteBackupDirs: [new("appdata copies", "lab98", "/backups/appdata")]);
 
     [Fact]
     public void EveryConfiguredSurfaceGetsAProbe()
@@ -43,11 +44,13 @@ public class DoctorTests
 
         // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 legacy-offsite
         // + 1 maintenance + 2 smart + 6 file-backup + 2 restore-canary
-        // + 3 zfs (source+target, source-only) + 2 offsite jobs
-        Assert.Equal(25, probes.Count);
+        // + 3 zfs (source+target, source-only) + 2 offsite jobs + 1 sqlite dir
+        Assert.Equal(26, probes.Count);
         Assert.Equal(
-            ["db-dumps", "docker", "file-backup", "offsite", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas", "zfs-replication"],
+            ["db-dumps", "docker", "file-backup", "offsite", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "sqlite", "truenas", "zfs-replication"],
             probes.Select(p => p.Area).Distinct().Order(StringComparer.Ordinal).ToList());
+        // The sqlite scan dir gets an existence preflight.
+        Assert.Single(probes, p => p.Area == "sqlite" && p.Command == "[ -d '/backups/appdata' ]");
 
         // The per-host docker path quirk carries into the probe command.
         Assert.Contains(probes, p => p.Host == "lab55" && p.Command.StartsWith("/usr/bin/docker", StringComparison.Ordinal));

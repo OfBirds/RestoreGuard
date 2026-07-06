@@ -41,6 +41,9 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
 - **File-level backup tools** — restic, borg, kopia, snapper (btrfs), Home
   Assistant native backups, or plain archive directories: snapshots exist, are
   fresh, and aren't suspiciously small.
+- **SQLite hot-copy detection** — rsync/plain-copy backups of app data
+  (vaultwarden, *arrs, Home Assistant) scanned for `-wal`/`-shm` files: proof a
+  database was copied while open — the silently-corrupt SQLite backup.
 - **Restore canary** — snapshots existing ≠ backups restoring. Opt a restic/borg
   source into a per-audit restore drill: a sentinel file is streamed out of the
   *latest* snapshot and byte-counted on the host (nothing written, no content

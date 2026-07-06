@@ -1,0 +1,6 @@
+vaultwarden/db.sqlite3-wal
+vaultwarden/db.sqlite3-shm
+homeassistant/home-assistant_v2.db-wal
+sonarr/sonarr.db-wal
+radarr/radarr.db-shm
+paperless/db.sqlite3-wal

@@ -44,6 +44,17 @@ internal sealed class FakeLabSsh : ISshProvider
                 ? Ok("256\n")
                 : Task.FromResult(new SshResult(0, "0\n", "Include pattern never matched."));
 
+        // SQLite hot-copy scans: /backups/appdata is clean, /backups/appdata-live
+        // has two hot-copied databases, anything else isn't a directory.
+        if (command.Contains("-name '*-wal'"))
+        {
+            if (command.Contains("'/backups/appdata'"))
+                return Ok("");
+            if (command.Contains("'/backups/appdata-live'"))
+                return Ok("vaultwarden/db.sqlite3-wal\nhomeassistant/home-assistant_v2.db-wal\n");
+            return Fail("find: no such file or directory");
+        }
+
         // Off-site job probes: a sync log with run markers, and rclone capacity.
         if (command.StartsWith("tail "))
             return command.Contains("'/var/log/offsite-sync.log'")

@@ -117,6 +117,19 @@ the machine.
 NOTE: for borg, give the path as stored in the archive — the leading `/` is
 stripped automatically.
 
+== SQLite hot-copy detection (`sqliteBackupDirs`)
+
+Half of selfhosted runs on SQLite (vaultwarden, the *arrs, Home Assistant,
+paperless), and the classic failure is rsync/cp of a *running* app's data dir:
+the copy "succeeds" daily and restores corrupt. SQLite keeps `-wal`/`-shm`
+files next to a database only while it is open — inside a backup directory they
+are proof the copy happened mid-write.
+
+[cols="2,1,4"]
+|===
+| `sqlite/hot-copy` | RED | the backup directory contains WAL/SHM files — the database(s) next to them were copied while open and may not restore. Copy with `sqlite3 <db> '.backup'` / `VACUUM INTO`, or stop the app during the copy
+|===
+
 == ZFS snapshots & replication (`zfsReplications`)
 
 Sanoid/syncoid-style setups (or any `zfs send` pipeline) on hosts outside
