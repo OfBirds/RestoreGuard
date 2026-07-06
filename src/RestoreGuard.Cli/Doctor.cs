@@ -97,6 +97,17 @@ public static class Doctor
                 "kopia" => $"kopia repository connected for the SSH user ({s.Name})",
                 _ => $"unknown fileBackups kind '{s.Kind}' ({s.Name})",
             }));
+
+            // The restore canary is preflighted with the SAME restore the audit runs —
+            // a typo'd canaryPath should fail here, not as a RED on the first audit.
+            if (!string.IsNullOrWhiteSpace(s.CanaryPath) && s.Kind is "restic" or "borg")
+            {
+                probes.Add(new DoctorProbe(s.Alias, "restore-canary", s.Kind == "restic"
+                        ? $"[ \"$(restic -r '{s.Repo}' --password-file '{s.PasswordFile}' --no-lock dump latest '{s.CanaryPath}' | wc -c)\" -gt 0 ]"
+                        : $"a=$(BORG_PASSCOMMAND='cat {s.PasswordFile}' borg list --short --last 1 '{s.Repo}') && [ -n \"$a\" ] && "
+                          + $"[ \"$(BORG_PASSCOMMAND='cat {s.PasswordFile}' borg extract --stdout \"{s.Repo}::$a\" '{s.CanaryPath!.TrimStart('/')}' | wc -c)\" -gt 0 ]",
+                    $"canary '{s.CanaryPath}' restores from the latest snapshot ({s.Name})"));
+            }
         }
 
         return probes;

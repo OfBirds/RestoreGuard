@@ -59,7 +59,11 @@ xref:configuration.adoc[configuration reference]):
 * *Proxmox VE / PBS / vzdump* — every VM and container covered by a fresh image
   backup; PBS garbage collection and verification actually running and passing.
 * *File-level backup tools* — restic, borg, kopia, snapper (btrfs), Home
-  Assistant OS backups, or a plain directory of archives.
+  Assistant OS backups, or a plain directory of archives — including an optional
+  *restore canary*: a sentinel file restored from the latest snapshot on every
+  audit, because snapshots existing is not the same as backups restoring.
+* *3-2-1 hygiene* — guests whose every image backup lives on the very node it
+  protects (a backup that dies with the box).
 * *TrueNAS SCALE* — ZFS snapshot freshness, cloud-sync task health, datasets
   that never leave the box, pool health and scrub age.
 * *Off-site copies* — the sync ran, succeeded, and the destination has room.

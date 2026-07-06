@@ -303,10 +303,32 @@ public static class InteractiveMode
                         });
                     if (passFile.Length == 0)
                         break;
+                    // The restore canary is probed LIVE: a real dump/extract of the file
+                    // from the latest snapshot, byte-counted on the host — the same
+                    // command every audit will run.
+                    var canary = await AskProbedAsync(io,
+                        "  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip)",
+                        "",
+                        async c =>
+                        {
+                            try
+                            {
+                                var probe = await new Providers.FileBackups.FileBackupProvider(ssh).ProbeCanaryAsync(
+                                    new("wizard probe", tool, host, Repo: repo, PasswordFile: passFile, CanaryPath: c));
+                                return probe.Bytes > 0
+                                    ? (true, $"restored {probe.Bytes} bytes from the latest snapshot")
+                                    : (false, $"restored 0 bytes — {probe.Detail ?? "is the file really in the latest snapshot? (borg: give the path as stored, the leading / is handled)"}");
+                            }
+                            catch (Providers.Docker.ProviderException ex)
+                            {
+                                return (false, ex.Message);
+                            }
+                        });
                     fileBackups.Add(new(
                         Ask(io, "  a name for this source", $"{tool} {host} {repo}"),
                         tool, host, Repo: repo, PasswordFile: passFile,
-                        MaxAgeHours: AskHours(io, 26)));
+                        MaxAgeHours: AskHours(io, 26),
+                        CanaryPath: canary.Length > 0 ? canary : null));
                     break;
                 }
                 case "d" or "dir" or "folder":
@@ -445,7 +467,12 @@ public static class InteractiveMode
         if (logicalDb is not null) configured.Add("DB dumps");
         if (pveNodes is not null) configured.Add($"{pveNodes.Count} Proxmox node(s)");
         if (trueNas is not null) configured.Add("TrueNAS");
-        if (fileBackups.Count > 0) configured.Add($"{fileBackups.Count} file-backup source(s)");
+        if (fileBackups.Count > 0)
+        {
+            var canaries = fileBackups.Count(s => s.CanaryPath is not null);
+            configured.Add($"{fileBackups.Count} file-backup source(s)"
+                + (canaries > 0 ? $" ({canaries} with restore canary)" : ""));
+        }
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
 
         if (configured.Count == 0)

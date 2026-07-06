@@ -17,8 +17,8 @@ public class DoctorTests
         SmartHosts: ["lab99", "lab142"],
         FileBackups:
         [
-            new("restic", "restic", "lab98", Repo: "/misc/repo", PasswordFile: "/root/.restic-pass"),
-            new("borg", "borg", "lab55", Repo: "/var/backups/borg", PasswordFile: "/root/.borg-pass"),
+            new("restic", "restic", "lab98", Repo: "/misc/repo", PasswordFile: "/root/.restic-pass", CanaryPath: "/opt/x/docker-compose.yml"),
+            new("borg", "borg", "lab55", Repo: "/var/backups/borg", PasswordFile: "/root/.borg-pass", CanaryPath: "/etc/fstab"),
             new("tarballs", "dir", "lab118", Path: "/opt/volume-backups"),
             new("ha", "haos", "lab99", Vmid: 9000),
             new("snapper", "snapper", "lab55", SnapperConfig: "rgdata"),
@@ -32,10 +32,10 @@ public class DoctorTests
         var probes = Doctor.BuildProbes(FullConfig());
 
         // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 offsite
-        // + 1 maintenance + 2 smart + 6 file-backup
-        Assert.Equal(18, probes.Count);
+        // + 1 maintenance + 2 smart + 6 file-backup + 2 restore-canary
+        Assert.Equal(20, probes.Count);
         Assert.Equal(
-            ["db-dumps", "docker", "file-backup", "pbs-maintenance", "pbs-offsite", "pve", "smart", "truenas"],
+            ["db-dumps", "docker", "file-backup", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas"],
             probes.Select(p => p.Area).Distinct().Order(StringComparer.Ordinal).ToList());
 
         // The per-host docker path quirk carries into the probe command.
@@ -47,6 +47,24 @@ public class DoctorTests
         Assert.Contains(probes, p => p.Command.StartsWith("restic", StringComparison.Ordinal));
         Assert.Contains(probes, p => p.Command.Contains("BORG_PASSCOMMAND"));
         Assert.Contains(probes, p => p.Command.Contains("qm guest cmd 9000 ping"));
+    }
+
+    [Fact]
+    public void CanarySources_GetARealRestoreProbe()
+    {
+        var probes = Doctor.BuildProbes(FullConfig()).Where(p => p.Area == "restore-canary").ToList();
+
+        Assert.Equal(2, probes.Count);
+        // Restic dumps 'latest' directly; borg resolves the newest archive name first
+        // and uses the stored path (leading slash stripped) — the same restores the
+        // audit runs, byte-counted on the host.
+        var restic = Assert.Single(probes, p => p.Host == "lab98");
+        Assert.Contains("dump latest '/opt/x/docker-compose.yml' | wc -c", restic.Command);
+        Assert.Contains("-gt 0", restic.Command);
+        var borg = Assert.Single(probes, p => p.Host == "lab55");
+        Assert.Contains("borg list --short --last 1", borg.Command);
+        Assert.Contains("'etc/fstab'", borg.Command);
+        Assert.Contains("canary '/etc/fstab' restores from the latest snapshot (borg)", borg.Requirement);
     }
 
     [Fact]

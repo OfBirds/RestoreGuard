@@ -31,6 +31,19 @@ file sealed class FakeLabSsh : ISshProvider
                 ? Ok("")
                 : Fail("Fatal: wrong password or no key found");
 
+        // Restore-canary probes: /etc/fstab restores, anything else comes back as
+        // 0 bytes with the tool's stderr (the pipeline's exit code is wc's: 0).
+        if (command.Contains("dump latest"))
+            return command.Contains("'/etc/fstab'")
+                ? Ok("512\n")
+                : Task.FromResult(new SshResult(0, "0\n", "Fatal: no matching entries found"));
+        if (command.Contains("borg list --json"))
+            return Ok("""{"archives":[{"name":"nas-2026-07-06"}]}""");
+        if (command.Contains("borg extract --stdout"))
+            return command.Contains("'etc/fstab'")
+                ? Ok("256\n")
+                : Task.FromResult(new SshResult(0, "0\n", "Include pattern never matched."));
+
         // Checked before "echo ok": the smartctl capability probe contains both.
         if (command.Contains("smartctl"))
             return Ok(hostAlias switch
@@ -297,6 +310,7 @@ public class WizardTests : IDisposable
         var (ok, output) = await RunWizardAsync(
             "", "n", "n", "n",                    // skip docker/dumps/pve/truenas
             "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
+            "",                                   // canary: skip
             "", "",                               // name default, hours default
             "",                                   // file backups: done
             "");                                  // smart: skip
@@ -309,6 +323,7 @@ public class WizardTests : IDisposable
         Assert.Equal(("borg", "nas", "/backups/borg", "/root/.borg-pass", 26d),
             (src.Kind, src.Alias, src.Repo, src.PasswordFile, src.MaxAgeHours));
         Assert.Equal("borg nas /backups/borg", src.Name);
+        Assert.Null(src.CanaryPath);
     }
 
     [Fact]
@@ -332,8 +347,8 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "", "n", "n", "n",
-            "r", "nas", "/mnt/restic-repo", "", "", "",   // restic ok with default passfile
-            "d", "nas", "/var/backups/db-prod", "", "",   // dir with real folder
+            "r", "nas", "/mnt/restic-repo", "", "", "", "",   // restic ok with default passfile, canary skipped
+            "d", "nas", "/var/backups/db-prod", "", "",       // dir with real folder
             "", "");
 
         Assert.True(ok);
@@ -343,6 +358,40 @@ public class WizardTests : IDisposable
         Assert.Equal(2, config.FileBackups!.Count);
         Assert.Equal("restic", config.FileBackups[0].Kind);
         Assert.Equal(("dir", "/var/backups/db-prod"), (config.FileBackups[1].Kind, config.FileBackups[1].Path));
+    }
+
+    [Fact]
+    public async Task Wizard_CanaryIsProbedLive_AndWrittenToConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n",
+            "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
+            "/etc/fstab",                          // canary — live-probed: extract restores 256 bytes
+            "", "",                                // name, hours
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("restored 256 bytes from the latest snapshot", output);
+        Assert.Contains("1 file-backup source(s) (1 with restore canary)", output);
+        var src = Assert.Single(RestoreGuardConfig.Load(ConfigPath).FileBackups!);
+        Assert.Equal("/etc/fstab", src.CanaryPath);
+    }
+
+    [Fact]
+    public async Task Wizard_CanaryThatDoesNotRestore_FailsLoud_SkipKeepsSourceWithoutCanary()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n",
+            "r", "nas", "/mnt/restic-repo", "",   // restic ok with default passfile
+            "/nope.conf", "n", "",                // canary restores 0 bytes -> don't keep -> Enter skips
+            "", "",                               // name, hours
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("restored 0 bytes", output);
+        Assert.Contains("no matching entries", output);
+        var src = Assert.Single(RestoreGuardConfig.Load(ConfigPath).FileBackups!);
+        Assert.Null(src.CanaryPath);
     }
 
     // ---------- setup / backup ----------
