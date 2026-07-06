@@ -55,6 +55,10 @@ public class WizardTranscriptTests
                 "y", "pve", "", "pbs-store",                 // pve: node default 'pve', storages
                 "",                                          // pve: done
                 "y", "truenas", "tank/private", "",          // truenas + one excluded dataset, done
+                "y", "pve", "tank/data",                     // zfs: source dataset (2 snapshots)
+                "y", "nas", "backup/pve-data",               // replicated to nas
+                "", "",                                      // name default, hours default
+                "",                                          // zfs: done
                 "r", "nas", "/mnt/restic-repo", "", "/etc/fstab", "", "",  // restic + canary
                 "b", "nas", "/backups/borg", "", "/etc/fstab", "", "",     // borg + canary
                 "d", "nas", "/var/backups/db-prod", "", "",  // dir
@@ -88,6 +92,11 @@ public class WizardTranscriptTests
                 "",                                          // pve: done
                 "y", "truenas",
                 @"\management\system", "n", "",              // dataset: normalized, not found -> skip
+                "y", "pve", "tank/typo", "n", "",            // zfs: bad dataset -> don't keep -> entry skipped
+                "pve", "tank/data",                          // retry: dataset ok
+                "y", "",                                     // replicated, but Enter for the replica host
+                "", "",                                      // name, hours
+                "",                                          // zfs: done
                 "b", "nas", "/backups/borg",
                 "/root/.wrong-pass", "n", "",                // wrong passphrase -> don't keep -> source cancelled
                 "r", "nas", "/mnt/restic-repo", "",
@@ -112,6 +121,7 @@ public class WizardTranscriptTests
                 "n",                                         // dumps: no
                 "n",                                         // pve: no
                 "n",                                         // truenas: no
+                "n",                                         // zfs: no
                 "",                                          // file backups: skip
                 "",                                          // smart: skip
             ]),

@@ -127,6 +127,28 @@ that is always in the backup, like a compose or config file. Per kind:
 | `haos` | `vmid` | Home Assistant OS full backups, read via the Proxmox qemu guest agent: agent enabled in the HA VM, root on its PVE host
 |===
 
+== `zfsReplications` — sanoid/syncoid & zfs send
+
+[source,json]
+----
+"zfsReplications": [
+  { "name": "tank/data @ pve -> nas",
+    "sourceAlias": "mypve", "sourceDataset": "tank/data",
+    "targetAlias": "mynas", "targetDataset": "backup/pve/data",
+    "maxSnapshotAgeHours": 26, "maxReplicaAgeHours": 26 },
+  // snapshot-only (no replica): watch that the snapshot job keeps running
+  { "name": "tank/scratch snapshots",
+    "sourceAlias": "mypve", "sourceDataset": "tank/scratch" }
+]
+----
+
+One entry per dataset. `target*` fields come as a pair or not at all: with a
+target, the replica's newest snapshot is checked too (`zfs send`/syncoid still
+shipping); without, only source snapshot freshness (sanoid still running).
+
+*Host needs:* `zfs` on PATH for the SSH user; read access is enough — the probe
+is `zfs list -H -p -t snapshot` (read-only, no `zfs send/recv` is ever run).
+
 == `trueNas` — ZFS snapshots, cloud sync, pools
 
 [source,json]

@@ -44,6 +44,18 @@ internal sealed class FakeLabSsh : ISshProvider
                 ? Ok("256\n")
                 : Task.FromResult(new SshResult(0, "0\n", "Include pattern never matched."));
 
+        // ZFS snapshot listings: tank/data has fresh-ish sanoid snapshots,
+        // backup/pve-data is its replica with one shipped snapshot; anything
+        // else is not a dataset.
+        if (command.StartsWith("zfs list"))
+        {
+            if (command.Contains("'tank/data'"))
+                return Ok("tank/data@autosnap_2026-07-05_00:00\t1751666400\ntank/data@autosnap_2026-07-06_00:00\t1751752800\n");
+            if (command.Contains("'backup/pve-data'"))
+                return Ok("backup/pve-data@autosnap_2026-07-06_00:00\t1751752800\n");
+            return Fail($"cannot open '{command}': dataset does not exist");
+        }
+
         // Docker-binary probe (wizard docker-path question): quoted path after
         // `command -v` — distinct from the smartctl probe, which is unquoted.
         if (command.StartsWith("command -v '"))

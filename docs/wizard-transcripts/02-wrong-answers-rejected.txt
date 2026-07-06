@@ -103,6 +103,26 @@ Do you run TrueNAS SCALE? [y/N]: «y»
   Keep this value anyway? [y/N]: «n»
   dataset to exclude #1, as pool/dataset (e.g. tank/private; Enter = none): «Enter»
 
+--- ZFS snapshots & replication (sanoid/syncoid or zfs send, outside TrueNAS) ---
+Do you snapshot/replicate ZFS datasets that RestoreGuard should watch? [y/N]: «y»
+Dataset #1: SSH destination of the machine holding it (Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  dataset (pool/dataset, as in `zfs list`): «tank/typo»
+  checking ... PROBLEM — no dataset 'tank/typo' there (format: pool/dataset, as `zfs list` shows it)
+  Keep this value anyway? [y/N]: «n»
+  dataset (pool/dataset, as in `zfs list`): «Enter»
+  Skipping this dataset (no name).
+Dataset #1: SSH destination of the machine holding it (Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  dataset (pool/dataset, as in `zfs list`): «tank/data»
+  checking ... OK — dataset found, 2 snapshot(s)
+  is it replicated somewhere (syncoid / zfs send)? [y/N]: «y»
+  SSH destination of the machine holding the REPLICA (Enter = skip the replica): «Enter»
+  Watching source snapshots only.
+  a name for this entry [tank/data @ pve -> ]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Dataset #2: SSH destination of the machine holding it (Enter = done): «Enter»
+
 --- File-level backups (restic, borg, folders of archives, Home Assistant) ---
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «b»
   SSH destination of the machine that can open the borg repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
@@ -148,7 +168,7 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
   checking for smartctl and physical disks ... OK
 SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), SMART on 1 host(s).
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), SMART on 1 host(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
 More to add later? Off-site sync checks and PBS GC/verify hygiene are
@@ -203,7 +223,17 @@ Wizard result: config written
       "maxAgeHours": 26
     }
   ],
-  "suppressionsFile": "suppressions.json"
+  "suppressionsFile": "suppressions.json",
+  "zfsReplications": [
+    {
+      "name": "tank/data @ pve -> ",
+      "sourceAlias": "pve",
+      "sourceDataset": "tank/data",
+      "targetAlias": "",
+      "maxSnapshotAgeHours": 26,
+      "maxReplicaAgeHours": 26
+    }
+  ]
 }
 
 === every SSH command the wizard ran (in order) ===
@@ -220,14 +250,18 @@ Wizard result: config written
  11. [pve] pvesh get /nodes/'pve'/storage/'bogus-storage'/content --output-format json > /dev/null
  12. [truenas] echo ok
  13. [truenas] midclt call pool.dataset.query '[["id","=","management/system"]]' '{"select":["id"]}'
- 14. [nas] echo ok
- 15. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
- 16. [nas] echo ok
- 17. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
- 18. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
- 19. [truenas] echo ok
- 20. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 21. [nas] echo ok
- 22. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 23. [hypervisor] echo ok
- 24. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 14. [pve] echo ok
+ 15. [pve] zfs list -H -p -t snapshot -o name,creation -s creation -d 1 'tank/typo'
+ 16. [pve] echo ok
+ 17. [pve] zfs list -H -p -t snapshot -o name,creation -s creation -d 1 'tank/data'
+ 18. [nas] echo ok
+ 19. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
+ 20. [nas] echo ok
+ 21. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
+ 22. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
+ 23. [truenas] echo ok
+ 24. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 25. [nas] echo ok
+ 26. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 27. [hypervisor] echo ok
+ 28. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks

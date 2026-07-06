@@ -100,6 +100,7 @@ public static class Doctor
 
             // The restore canary is preflighted with the SAME restore the audit runs —
             // a typo'd canaryPath should fail here, not as a RED on the first audit.
+            // (zfs datasets get the same treatment below.)
             if (!string.IsNullOrWhiteSpace(s.CanaryPath) && s.Kind is "restic" or "borg")
             {
                 probes.Add(new DoctorProbe(s.Alias, "restore-canary", s.Kind == "restic"
@@ -107,6 +108,19 @@ public static class Doctor
                         : $"a=$(BORG_PASSCOMMAND='cat {s.PasswordFile}' borg list --short --last 1 '{s.Repo}') && [ -n \"$a\" ] && "
                           + $"[ \"$(BORG_PASSCOMMAND='cat {s.PasswordFile}' borg extract --stdout \"{s.Repo}::$a\" '{s.CanaryPath!.TrimStart('/')}' | wc -c)\" -gt 0 ]",
                     $"canary '{s.CanaryPath}' restores from the latest snapshot ({s.Name})"));
+            }
+        }
+
+        foreach (var z in config.ZfsReplications ?? [])
+        {
+            probes.Add(new DoctorProbe(z.SourceAlias, "zfs-replication",
+                $"zfs list '{z.SourceDataset}' > /dev/null",
+                $"source dataset '{z.SourceDataset}' exists ({z.Name})"));
+            if (z.TargetAlias is { Length: > 0 } && z.TargetDataset is { Length: > 0 })
+            {
+                probes.Add(new DoctorProbe(z.TargetAlias, "zfs-replication",
+                    $"zfs list '{z.TargetDataset}' > /dev/null",
+                    $"replica dataset '{z.TargetDataset}' exists ({z.Name})"));
             }
         }
 

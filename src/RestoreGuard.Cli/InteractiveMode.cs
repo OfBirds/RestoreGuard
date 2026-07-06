@@ -301,6 +301,54 @@ public static class InteractiveMode
         }
 
         io.WriteLine();
+        io.WriteLine("--- ZFS snapshots & replication (sanoid/syncoid or zfs send, outside TrueNAS) ---");
+        var zfsReplications = new List<Providers.Zfs.ZfsReplicationConfig>();
+        if (AskYesNo(io, "Do you snapshot/replicate ZFS datasets that RestoreGuard should watch?"))
+        {
+            while (true)
+            {
+                var sourceAlias = await AskSshDestinationAsync(ssh, io,
+                    $"Dataset #{zfsReplications.Count + 1}: SSH destination of the machine holding it (Enter = {(zfsReplications.Count == 0 ? "skip" : "done")})");
+                if (sourceAlias.Length == 0)
+                    break;
+                var sourceDataset = await AskProbedAsync(io, "  dataset (pool/dataset, as in `zfs list`)", "",
+                    d => ProbeDatasetAsync(ssh, sourceAlias, d));
+                if (sourceDataset.Length == 0)
+                {
+                    io.WriteLine("  Skipping this dataset (no name).");
+                    continue;
+                }
+
+                string? targetAlias = null, targetDataset = null;
+                if (AskYesNo(io, "  is it replicated somewhere (syncoid / zfs send)?"))
+                {
+                    targetAlias = await AskSshDestinationAsync(ssh, io,
+                        "  SSH destination of the machine holding the REPLICA (Enter = skip the replica)");
+                    if (targetAlias.Length > 0)
+                    {
+                        targetDataset = await AskProbedAsync(io, "  replica dataset (pool/dataset on that machine)", "",
+                            d => ProbeDatasetAsync(ssh, targetAlias, d));
+                        if (targetDataset.Length == 0)
+                        {
+                            io.WriteLine("  Skipping the replica (no dataset) — watching source snapshots only.");
+                            targetAlias = null;
+                        }
+                    }
+                    else
+                    {
+                        io.WriteLine("  Watching source snapshots only.");
+                    }
+                }
+
+                var name = Ask(io, "  a name for this entry",
+                    $"{sourceDataset} @ {sourceAlias}" + (targetAlias is null ? "" : $" -> {targetAlias}"));
+                var hours = AskHours(io, 26); // one answer drives both limits; split via the sample json
+                zfsReplications.Add(new(name, sourceAlias, sourceDataset, targetAlias, targetDataset,
+                    MaxSnapshotAgeHours: hours, MaxReplicaAgeHours: hours));
+            }
+        }
+
+        io.WriteLine();
         io.WriteLine("--- File-level backups (restic, borg, folders of archives, Home Assistant) ---");
         var fileBackups = new List<Providers.FileBackups.FileBackupSource>();
         while (true)
@@ -511,6 +559,12 @@ public static class InteractiveMode
             configured.Add($"{fileBackups.Count} file-backup source(s)"
                 + (canaries > 0 ? $" ({canaries} with restore canary)" : ""));
         }
+        if (zfsReplications.Count > 0)
+        {
+            var replicated = zfsReplications.Count(z => z.TargetDataset is not null);
+            configured.Add($"{zfsReplications.Count} ZFS dataset(s)"
+                + (replicated > 0 ? $" ({replicated} replicated)" : ""));
+        }
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
 
         if (configured.Count == 0)
@@ -526,7 +580,8 @@ public static class InteractiveMode
             PbsOffsite: null, PbsMaintenance: null,
             SmartHosts: smartHosts.Count > 0 ? smartHosts : null,
             FileBackups: fileBackups.Count > 0 ? fileBackups : null,
-            SuppressionsFile: "suppressions.json");
+            SuppressionsFile: "suppressions.json",
+            ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null);
 
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
         var suppressionsPath = Path.Combine(configDir, "suppressions.json");
@@ -550,6 +605,9 @@ public static class InteractiveMode
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        // The config is a local file the user reads and edits — keep "->" in a
+        // name readable instead of escaping it to a \u sequence.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
     /// <summary>Asks for an SSH destination and immediately proves it works; on
@@ -631,6 +689,20 @@ public static class InteractiveMode
                 io.WriteLine("  (press Enter to skip this question)");
             }
         }
+    }
+
+    /// <summary>Probes a ZFS dataset with the SAME listing the audit runs, and turns
+    /// the snapshot count into the wizard's feedback (0 snapshots is not an error —
+    /// the job may simply not have run yet; the audit will judge freshness).</summary>
+    private static async Task<(bool Ok, string Message)> ProbeDatasetAsync(ISshProvider ssh, string alias, string dataset)
+    {
+        var r = await ssh.RunAsync(alias, Providers.Zfs.ZfsProvider.ListCommand(dataset));
+        if (r.ExitCode != 0)
+            return (false, $"no dataset '{dataset}' there (format: pool/dataset, as `zfs list` shows it)");
+        var count = r.StdOut.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length;
+        return (true, count == 0
+            ? "dataset found (no snapshots yet — fine if the job hasn't run)"
+            : $"dataset found, {count} snapshot(s)");
     }
 
     private static string Sh(string s) => "'" + s.Replace("'", "'\\''") + "'";

@@ -30,6 +30,7 @@ public class WizardTests : IDisposable
             "y", "", "", "", "y",                 // dumps: yes, default host+path, pg_dumpall, prod-naming
             "y", "pve", "", "pbs-store", "",      // pve: node default 'pve', storage ok, done
             "y", "truenas", "tank/private", "",   // truenas + one excluded dataset
+            "n",                                  // zfs: no
             "",                                   // file backups: skip
             "hypervisor", "");                    // smart: one good host, done
 
@@ -239,7 +240,7 @@ public class WizardTests : IDisposable
     public async Task HoursGarbage_ReAskedInsteadOfSilentDefault()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n",
+            "", "n", "n", "n", "n",
             "d", "nas", "/var/backups/db-prod", "",
             "two days", "",                       // garbage -> re-asked -> Enter = default
             "", "");
@@ -288,7 +289,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",
-            "n", "n", "n",
+            "n", "n", "n", "n",
             "",                                   // file backups: skip
             "truenas", "n",                       // ssh ok, but missing-tool -> don't add
             "hypervisor", "");                    // fine
@@ -303,7 +304,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",
-            "n", "n", "n",
+            "n", "n", "n", "n",
             "",                                   // file backups: skip
             "nas", "n", "");                      // ssh ok, no disks -> don't add
 
@@ -319,7 +320,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_AddsBorgSource_ProbingTheRepo()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n",                    // skip docker/dumps/pve/truenas
+            "", "n", "n", "n", "n",               // skip docker/dumps/pve/truenas/zfs
             "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
             "",                                   // canary: skip
             "", "",                               // name default, hours default
@@ -342,7 +343,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",                        // one docker host so the config isn't empty
-            "n", "n", "n",
+            "n", "n", "n", "n",
             "b", "nas", "/backups/borg",
             "/root/.wrong-pass", "n", "",         // probe fails -> don't keep -> Enter skips -> source cancelled
             "",                                   // file backups: done
@@ -357,7 +358,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_AddsResticAndDirSources()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n",
+            "", "n", "n", "n", "n",
             "r", "nas", "/mnt/restic-repo", "", "", "", "",   // restic ok with default passfile, canary skipped
             "d", "nas", "/var/backups/db-prod", "", "",       // dir with real folder
             "", "");
@@ -375,7 +376,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_CanaryIsProbedLive_AndWrittenToConfig()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n",
+            "", "n", "n", "n", "n",
             "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
             "/etc/fstab",                          // canary — live-probed: extract restores 256 bytes
             "", "",                                // name, hours
@@ -392,7 +393,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_CanaryThatDoesNotRestore_FailsLoud_SkipKeepsSourceWithoutCanary()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n",
+            "", "n", "n", "n", "n",
             "r", "nas", "/mnt/restic-repo", "",   // restic ok with default passfile
             "/nope.conf", "n", "",                // canary restores 0 bytes -> don't keep -> Enter skips
             "", "",                               // name, hours
@@ -403,6 +404,50 @@ public class WizardTests : IDisposable
         Assert.Contains("no matching entries", output);
         var src = Assert.Single(RestoreGuardConfig.Load(ConfigPath).FileBackups!);
         Assert.Null(src.CanaryPath);
+    }
+
+    // ---------- ZFS replication through the wizard ----------
+
+    [Fact]
+    public async Task Wizard_ZfsReplicatedDataset_ProbedOnBothHosts_WrittenToConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n",
+            "y",                                  // zfs: yes
+            "pve", "tank/data",                   // source probed: 2 snapshots
+            "y", "nas", "backup/pve-data",        // replica probed: 1 snapshot
+            "", "",                               // name default, hours default
+            "",                                   // zfs: done
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("dataset found, 2 snapshot(s)", output);
+        Assert.Contains("dataset found, 1 snapshot(s)", output);
+        Assert.Contains("1 ZFS dataset(s) (1 replicated)", output);
+        var config = RestoreGuardConfig.Load(ConfigPath);
+        Assert.Empty(config.Validate());
+        var z = Assert.Single(config.ZfsReplications!);
+        Assert.Equal(("pve", "tank/data", "nas", "backup/pve-data", "tank/data @ pve -> nas"),
+            (z.SourceAlias, z.SourceDataset, z.TargetAlias, z.TargetDataset, z.Name));
+        Assert.Equal((26d, 26d), (z.MaxSnapshotAgeHours, z.MaxReplicaAgeHours));
+    }
+
+    [Fact]
+    public async Task Wizard_ZfsBadDataset_RejectedThenSkippedCleanly()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",                        // docker host so the config isn't empty
+            "n", "n", "n",
+            "y", "pve", "tank/typo", "n", "",     // dataset probe fails -> don't keep -> Enter skips entry
+            "",                                   // zfs: done
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("no dataset 'tank/typo' there", output);
+        Assert.Contains("Skipping this dataset (no name).", output);
+        var config = RestoreGuardConfig.Load(ConfigPath);
+        Assert.Null(config.ZfsReplications);
+        Assert.Empty(config.Validate());
     }
 
     // ---------- setup / backup ----------

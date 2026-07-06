@@ -100,6 +100,21 @@ the machine.
 NOTE: for borg, give the path as stored in the archive — the leading `/` is
 stripped automatically.
 
+== ZFS snapshots & replication (`zfsReplications`)
+
+Sanoid/syncoid-style setups (or any `zfs send` pipeline) on hosts outside
+TrueNAS: the source dataset must keep getting snapshots, and — when a replica is
+configured — the replica's newest snapshot must be fresh too. Both fail quietly
+in real labs: the replica keeps its old snapshots and *looks* fine.
+
+[cols="2,1,4"]
+|===
+| `zfs-replication/no-snapshots` | RED | the source dataset has no snapshots at all — the snapshot job never ran here
+| `zfs-replication/snapshot-stale` | RED | newest source snapshot is older than `maxSnapshotAgeHours` — sanoid/the cron job stopped
+| `zfs-replication/replica-missing` | RED | the replica dataset has no snapshots — nothing was ever replicated into it
+| `zfs-replication/replica-stale` | RED | newest replicated snapshot is older than `maxReplicaAgeHours` — replication stopped while the source kept going
+|===
+
 == TrueNAS (`trueNas`)
 
 [cols="2,1,4"]

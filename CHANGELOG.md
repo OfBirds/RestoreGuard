@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **ZFS snapshot & replication check** (`zfsReplications`): sanoid/syncoid or
+  plain `zfs send` on any SSH host. Source dataset must keep getting snapshots
+  (`zfs-replication/no-snapshots`, `/snapshot-stale`); a configured replica's
+  newest snapshot must be fresh too (`/replica-missing`, `/replica-stale`) —
+  a dead replication looks fine because the replica keeps its old snapshots.
+  Wizard section with live dataset probing + doctor preflight included.
 - **Restore canary** (`fileBackups[].canaryPath`, restic/borg): every audit
   streams a configured sentinel file out of the *latest* snapshot and counts the
   bytes on the host — a real end-to-end restore drill through decryption and

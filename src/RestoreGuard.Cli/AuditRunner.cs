@@ -65,6 +65,10 @@ public static class AuditRunner
             .Where(s => !string.IsNullOrWhiteSpace(s.CanaryPath))
             .Select(s => Track("canary", $"{s.Alias} ({s.Name})", fileBackupProvider.ProbeCanaryAsync(s)))
             .ToList();
+        var zfsProvider = new Providers.Zfs.ZfsProvider(ssh);
+        var zfsTasks = (config.ZfsReplications ?? [])
+            .Select(z => Track("zfs", $"{z.SourceAlias} ({z.Name})", zfsProvider.GetAsync(z)))
+            .ToList();
 
         Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
 
@@ -152,6 +156,13 @@ public static class AuditRunner
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
+        var zfsStates = new List<ZfsReplicationState>();
+        foreach (var (host, state, error) in zfsTasks.Select(t => t.Result))
+        {
+            if (state is not null) zfsStates.Add(state);
+            if (error is not null) providerErrors.Add($"{host}: {error}");
+        }
+
         var inventory = new LabInventory(DateTimeOffset.UtcNow, services, artifacts, storage);
 
         List<ICheck> checks = [new MountDriftCheck(), new ConfigDriftCheck(), new StorageCapacityCheck(new StorageCapacityOptions())];
@@ -194,6 +205,13 @@ public static class AuditRunner
         if (canaries.Count > 0)
         {
             checks.Add(new RestoreCanaryCheck(canaries));
+        }
+        if (zfsStates.Count > 0 && config.ZfsReplications is { } zrs)
+        {
+            checks.Add(new ZfsReplicationCheck(zfsStates, zrs
+                .Select(z => new ZfsReplicationExpectation(z.Name,
+                    TimeSpan.FromHours(z.MaxSnapshotAgeHours), TimeSpan.FromHours(z.MaxReplicaAgeHours)))
+                .ToList()));
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);

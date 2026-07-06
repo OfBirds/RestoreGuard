@@ -46,6 +46,9 @@ Do you run Proxmox VE? [y/N]: «n»
 --- TrueNAS SCALE (pool health, snapshots, cloud-sync tasks) ---
 Do you run TrueNAS SCALE? [y/N]: «n»
 
+--- ZFS snapshots & replication (sanoid/syncoid or zfs send, outside TrueNAS) ---
+Do you snapshot/replicate ZFS datasets that RestoreGuard should watch? [y/N]: «n»
+
 --- File-level backups (restic, borg, folders of archives, Home Assistant) ---
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «Enter»
 

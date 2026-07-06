@@ -46,6 +46,28 @@
   ],
   "pbsMaxSnapshotAgeHours": 26,
 
+  // ZFS snapshots & replication outside TrueNAS (sanoid/syncoid, zfs send).
+  // Per dataset: the source must keep getting snapshots; with target* set (a pair),
+  // the replica's newest snapshot must be fresh too — a dead replication LOOKS fine
+  // because the replica keeps its old snapshots. Probe is `zfs list` (read-only).
+  "zfsReplications": [
+    {
+      "name": "tank/data @ mypve -> mynas",
+      "sourceAlias": "mypve",
+      "sourceDataset": "tank/data",
+      "targetAlias": "mynas",
+      "targetDataset": "backup/pve/data",
+      "maxSnapshotAgeHours": 26,
+      "maxReplicaAgeHours": 26
+    },
+    {
+      // snapshot-only: no replica, just "is sanoid/the snapshot job alive".
+      "name": "tank/scratch snapshots",
+      "sourceAlias": "mypve",
+      "sourceDataset": "tank/scratch"
+    }
+  ],
+
   // TrueNAS SCALE box: pool health/scrub, per-dataset capacity, snapshot freshness,
   // cloud-sync task state. excludeDatasets are dropped BEFORE entering the model.
   "trueNas": {

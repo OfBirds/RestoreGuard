@@ -24,7 +24,12 @@ public class DoctorTests
             new("snapper", "snapper", "lab55", SnapperConfig: "rgdata"),
             new("kopia", "kopia", "lab118"),
         ],
-        SuppressionsFile: null);
+        SuppressionsFile: null,
+        ZfsReplications:
+        [
+            new("pve data", "lab99", "tank/data", "lab142", "backup/pve-data"),
+            new("scratch", "lab99", "tank/scratch"),
+        ]);
 
     [Fact]
     public void EveryConfiguredSurfaceGetsAProbe()
@@ -33,9 +38,10 @@ public class DoctorTests
 
         // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 offsite
         // + 1 maintenance + 2 smart + 6 file-backup + 2 restore-canary
-        Assert.Equal(20, probes.Count);
+        // + 3 zfs (source+target, source-only)
+        Assert.Equal(23, probes.Count);
         Assert.Equal(
-            ["db-dumps", "docker", "file-backup", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas"],
+            ["db-dumps", "docker", "file-backup", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas", "zfs-replication"],
             probes.Select(p => p.Area).Distinct().Order(StringComparer.Ordinal).ToList());
 
         // The per-host docker path quirk carries into the probe command.
@@ -47,6 +53,19 @@ public class DoctorTests
         Assert.Contains(probes, p => p.Command.StartsWith("restic", StringComparison.Ordinal));
         Assert.Contains(probes, p => p.Command.Contains("BORG_PASSCOMMAND"));
         Assert.Contains(probes, p => p.Command.Contains("qm guest cmd 9000 ping"));
+    }
+
+    [Fact]
+    public void ZfsEntries_ProbeSourceAndReplicaDatasetsExist()
+    {
+        var probes = Doctor.BuildProbes(FullConfig()).Where(p => p.Area == "zfs-replication").ToList();
+
+        Assert.Equal(3, probes.Count);
+        Assert.Contains(probes, p => p.Host == "lab99" && p.Command == "zfs list 'tank/data' > /dev/null");
+        Assert.Contains(probes, p => p.Host == "lab142" && p.Command.Contains("'backup/pve-data'")
+            && p.Requirement == "replica dataset 'backup/pve-data' exists (pve data)");
+        // A snapshot-only entry probes only its source.
+        Assert.Single(probes, p => p.Requirement.Contains("(scratch)"));
     }
 
     [Fact]

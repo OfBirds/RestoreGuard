@@ -15,7 +15,8 @@ public sealed record RestoreGuardConfig(
     PbsMaintenanceCliConfig? PbsMaintenance,
     IReadOnlyList<string>? SmartHosts,
     IReadOnlyList<RestoreGuard.Providers.FileBackups.FileBackupSource>? FileBackups,
-    string? SuppressionsFile)
+    string? SuppressionsFile,
+    IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -95,6 +96,16 @@ public sealed record RestoreGuardConfig(
             if (kindError is not null) errors.Add(kindError);
             if (!string.IsNullOrWhiteSpace(s.CanaryPath) && s.Kind is not ("restic" or "borg"))
                 errors.Add($"fileBackups[{i}].canaryPath is only supported for restic and borg (kind is '{s.Kind}').");
+        }
+
+        foreach (var (z, i) in (ZfsReplications ?? []).Select((z, i) => (z, i)))
+        {
+            if (string.IsNullOrWhiteSpace(z.Name)) errors.Add($"zfsReplications[{i}].name is empty.");
+            if (string.IsNullOrWhiteSpace(z.SourceAlias)) errors.Add($"zfsReplications[{i}].sourceAlias is empty.");
+            if (string.IsNullOrWhiteSpace(z.SourceDataset)) errors.Add($"zfsReplications[{i}].sourceDataset is empty.");
+            // Target comes as a pair or not at all — half a target silently checks nothing.
+            if (string.IsNullOrWhiteSpace(z.TargetAlias) != string.IsNullOrWhiteSpace(z.TargetDataset))
+                errors.Add($"zfsReplications[{i}] needs BOTH targetAlias and targetDataset (or neither for snapshot-only).");
         }
 
         if (PbsOffsite is { } off && string.IsNullOrWhiteSpace(off.Alias))

@@ -49,6 +49,9 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
 - **3-2-1 hygiene (Proxmox)** — a guest whose *every* image backup sits on
   non-shared storage of its own node gets flagged: one disk or host failure
   takes the guest and all its copies together.
+- **ZFS snapshots & replication** — sanoid/syncoid or plain `zfs send` on any
+  host: the snapshot job still produces, and the replica's newest snapshot is
+  fresh (a dead replication *looks* fine — the replica keeps its old snapshots).
 - **TrueNAS** — ZFS snapshot freshness, cloud-sync tasks succeeding, top-level
   datasets that never leave the box, pool health + scrub age.
 - **Off-site freshness & capacity** — the sync actually ran, succeeded, and the
