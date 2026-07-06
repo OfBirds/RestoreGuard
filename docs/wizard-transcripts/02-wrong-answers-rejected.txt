@@ -4,9 +4,10 @@ GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:
   bash scripts/update-wizard-transcripts.sh
 (enforced by WizardTranscriptTests; user answers appear as «answer».)
 
-Each section gets a wrong answer first: the failure message, the
-keep-anyway escape hatch, retries, and the Enter-skips-after-rejection
-behavior are all on display.
+Each question gets a wrong answer first: failure messages, the
+keep-anyway escape hatch, retries, re-asks on typos/garbage, the
+Enter-skips-after-rejection behavior, and the guards that keep bad
+input out of the config are all on display.
 
 The simulated lab (see FakeLabSsh.cs): SSH works to nas/pve/truenas/
 hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
@@ -45,10 +46,17 @@ Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Dock
   Keep this destination anyway? [y/N]: «n»
 Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Docker): «nas»
   testing  ssh nas 'echo ok'  ... OK
-  path to docker on that host (Enter if plain `docker` works there) [docker]: «Enter»
+  path to docker on that host (Enter if plain `docker` works there) [docker]: «/opt/nodocker»
+  checking ... PROBLEM — no docker binary at '/opt/nodocker' on nas — check the path (`which docker` there)
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  path to docker on that host (Enter if plain `docker` works there): «Enter»
+  (using plain `docker`)
 Docker host #2 SSH destination (e.g. nas or root@192.168.1.10; Enter = done): «Enter»
 
 --- Database dumps (a folder of nightly <name>_<yyyyMMdd>.sql.gz files) ---
+Do you have a dump folder like that to watch? [y/N]: «yws»
+  Please answer y or n (Enter = no).
 Do you have a dump folder like that to watch? [y/N]: «y»
   SSH destination of the machine holding the dumps (e.g. nas or root@192.168.1.10; Enter = skip) [nas]: «Enter»
   testing  ssh nas 'echo ok'  ... OK
@@ -56,8 +64,12 @@ Do you have a dump folder like that to watch? [y/N]: «y»
   checking ... PROBLEM — folder not found on the host — check the path
   Keep this value anyway? [y/N]: «n»
   (press Enter to skip this question)
-  folder with the dump files: «Enter»
-  Skipping database dumps for now.
+  folder with the dump files: «/var/backups/db-prod»
+  checking ... OK — folder exists, 12 dump file(s) found
+  which tool writes these dumps (pg_dumpall, mysqldump, or mongodump) [pg_dumpall]: «pgdump»
+  PROBLEM — 'pgdump' is not one of: pg_dumpall, mysqldump, mongodump.
+  which tool writes these dumps (pg_dumpall, mysqldump, or mongodump) [pg_dumpall]: «mysqldump»
+  does this job dump ONLY containers named 'prod' (skipping 'staging')? [y/N]: «n»
 
 --- Proxmox VE (checks every VM/LXC has a fresh PBS or vzdump backup) ---
 Do you run Proxmox VE? [y/N]: «y»
@@ -67,13 +79,18 @@ PVE node #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «pve�
   checking ... PROBLEM — no node with that name — check the Proxmox UI sidebar
   Keep this value anyway? [y/N]: «n»
   (press Enter to skip this question)
-  the node's name in the Proxmox UI (top of the left sidebar): «pve»
+  the node's name in the Proxmox UI (top of the left sidebar): «Enter»
+  Skipping this node (no node name).
+PVE node #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  the node's name in the Proxmox UI (top of the left sidebar) [pve]: «Enter»
   checking ... OK — node found
   backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «bogus-storage»
   checking ... PROBLEM — storage 'bogus-storage' not readable on node 'pve' — check the name under Datacenter > Storage
   Keep this value anyway? [y/N]: «n»
-  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «pbs-store»
-  checking ... OK — all storages readable
+  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «Enter»
+  NOTE: no backup storages listed — every guest on this node will show RED
+  (image-backup/uncovered) until storages to read backups from are added.
 PVE node #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
 --- TrueNAS SCALE (pool health, snapshots, cloud-sync tasks) ---
@@ -90,7 +107,7 @@ Do you run TrueNAS SCALE? [y/N]: «y»
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «b»
   SSH destination of the machine that can open the borg repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
   testing  ssh nas 'echo ok'  ... OK
-  borg repository (a path like /mnt/nas/borg-repo; restic also takes s3:/sftp: URLs): «/backups/borg»
+  borg repository (a path like /mnt/nas/borg-repo; borg also takes ssh://user@host/path): «/backups/borg»
   file on that host holding the repo passphrase [/root/.borg-pass]: «/root/.wrong-pass»
   checking ... PROBLEM — could not open the repo with that file — check the repo path and the passphrase file
   Keep this value anyway? [y/N]: «n»
@@ -102,11 +119,15 @@ Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  
   restic repository (a path like /mnt/nas/restic-repo; restic also takes s3:/sftp: URLs): «/mnt/restic-repo»
   file on that host holding the repo password [/root/.restic-pass]: «Enter»
   checking ... OK — repo opens
-  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «/nope.conf»
+  Optional restore canary: every audit restores one small file from the latest
+  snapshot as proof the repo actually restores (read-only, counted on the host).
+  canary file that is ALWAYS in this backup (e.g. /etc/fstab; Enter = skip): «/nope.conf»
   checking ... PROBLEM — restored 0 bytes — Fatal: no matching entries found
   Keep this value anyway? [y/N]: «n»
-  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «Enter»
+  canary file that is ALWAYS in this backup (e.g. /etc/fstab; Enter = skip): «Enter»
   a name for this source [restic nas /mnt/restic-repo]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «two days»
+  PROBLEM — 'two days' is not a positive number of hours (Enter = 26).
   alert when the newest backup is older than (hours) [26]: «Enter»
 Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «x»
   r = restic, b = borg, k = kopia, s = btrfs snapper, d = folder of archives, h = Home Assistant, Enter = done.
@@ -127,7 +148,7 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
   checking for smartctl and physical disks ... OK
 SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), SMART on 1 host(s).
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), SMART on 1 host(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
 More to add later? Off-site sync checks and PBS GC/verify hygiene are
@@ -144,13 +165,22 @@ Wizard result: config written
       "dockerPath": "docker"
     }
   ],
+  "logicalDbBackups": [
+    {
+      "host": "nas",
+      "path": "/var/backups/db-prod",
+      "coversHosts": [
+        "nas"
+      ],
+      "maxDumpAgeHours": 26,
+      "method": "mysqldump",
+      "requireProdNaming": false
+    }
+  ],
   "pveNodes": [
     {
       "alias": "pve",
-      "node": "pve",
-      "backupStorages": [
-        "pbs-store"
-      ]
+      "node": "pve"
     }
   ],
   "pbsMaxSnapshotAgeHours": 26,
@@ -179,23 +209,25 @@ Wizard result: config written
 === every SSH command the wizard ran (in order) ===
   1. [badhost] echo ok
   2. [nas] echo ok
-  3. [nas] echo ok
-  4. [nas] find '/nonexistent' -maxdepth 1 -name '*.sql.gz' 2>/dev/null | wc -l; [ -d '/nonexistent' ]
-  5. [pve] echo ok
-  6. [pve] pvesh get /nodes/'wrongnode'/status --output-format json > /dev/null
-  7. [pve] pvesh get /nodes/'pve'/status --output-format json > /dev/null
-  8. [pve] pvesh get /nodes/'pve'/storage/'bogus-storage'/content --output-format json > /dev/null
-  9. [pve] pvesh get /nodes/'pve'/storage/'pbs-store'/content --output-format json > /dev/null
- 10. [truenas] echo ok
- 11. [truenas] midclt call pool.dataset.query '[["id","=","management/system"]]' '{"select":["id"]}'
- 12. [nas] echo ok
- 13. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
+  3. [nas] command -v '/opt/nodocker' > /dev/null 2>&1 || [ -x '/opt/nodocker' ]
+  4. [nas] echo ok
+  5. [nas] find '/nonexistent' -maxdepth 1 -name '*.sql.gz' 2>/dev/null | wc -l; [ -d '/nonexistent' ]
+  6. [nas] find '/var/backups/db-prod' -maxdepth 1 -name '*.sql.gz' 2>/dev/null | wc -l; [ -d '/var/backups/db-prod' ]
+  7. [pve] echo ok
+  8. [pve] pvesh get /nodes/'wrongnode'/status --output-format json > /dev/null
+  9. [pve] echo ok
+ 10. [pve] pvesh get /nodes/'pve'/status --output-format json > /dev/null
+ 11. [pve] pvesh get /nodes/'pve'/storage/'bogus-storage'/content --output-format json > /dev/null
+ 12. [truenas] echo ok
+ 13. [truenas] midclt call pool.dataset.query '[["id","=","management/system"]]' '{"select":["id"]}'
  14. [nas] echo ok
- 15. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
- 16. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
- 17. [truenas] echo ok
- 18. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 19. [nas] echo ok
- 20. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 21. [hypervisor] echo ok
- 22. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 15. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
+ 16. [nas] echo ok
+ 17. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
+ 18. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
+ 19. [truenas] echo ok
+ 20. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 21. [nas] echo ok
+ 22. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 23. [hypervisor] echo ok
+ 24. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks

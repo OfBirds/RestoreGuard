@@ -68,16 +68,23 @@ public class WizardTranscriptTests
         ["02-wrong-answers-rejected"] = new(
             "Wrong answers: every probe failing at least once",
             [
-                "Each section gets a wrong answer first: the failure message, the",
-                "keep-anyway escape hatch, retries, and the Enter-skips-after-rejection",
-                "behavior are all on display.",
+                "Each question gets a wrong answer first: failure messages, the",
+                "keep-anyway escape hatch, retries, re-asks on typos/garbage, the",
+                "Enter-skips-after-rejection behavior, and the guards that keep bad",
+                "input out of the config are all on display.",
             ],
             [
-                "badhost", "n", "nas", "",                   // ssh fails -> don't keep -> retry ok + docker path
+                "badhost", "n", "nas",                       // ssh fails -> don't keep -> retry ok
+                "/opt/nodocker", "n", "",                    // docker path typo -> don't keep -> Enter -> plain docker
                 "",                                          // docker: done
-                "y", "", "/nonexistent", "n", "",            // dumps: bad path -> don't keep -> Enter skips
-                "y", "pve", "wrongnode", "n", "pve",         // pve: wrong node name -> retry
-                "bogus-storage", "n", "pbs-store",           // pve: unreadable storage -> retry
+                "yws",                                       // yes/no typo -> re-asked
+                "y", "", "/nonexistent", "n",                // dumps: default host; bad path -> don't keep
+                "/var/backups/db-prod",                      // corrected path
+                "pgdump", "mysqldump",                       // method typo -> re-asked -> corrected
+                "n",                                         // prod-only: no
+                "y", "pve", "wrongnode", "n", "",            // pve: rejected node name -> Enter -> node skipped
+                "pve", "",                                   // retry: dest ok, node default 'pve' ok
+                "bogus-storage", "n", "",                    // unreadable storage -> don't keep -> EMPTY -> warning
                 "",                                          // pve: done
                 "y", "truenas",
                 @"\management\system", "n", "",              // dataset: normalized, not found -> skip
@@ -85,7 +92,8 @@ public class WizardTranscriptTests
                 "/root/.wrong-pass", "n", "",                // wrong passphrase -> don't keep -> source cancelled
                 "r", "nas", "/mnt/restic-repo", "",
                 "/nope.conf", "n", "",                       // canary restores 0 bytes -> don't keep -> skip canary
-                "", "",                                      // restic source still added: name, hours
+                "",                                          // restic source still added: name default
+                "two days", "",                              // hours garbage -> re-asked -> Enter = default
                 "x",                                         // unknown file-backup kind
                 "",                                          // file backups: done
                 "truenas", "n",                              // smart: smartmontools missing -> don't add

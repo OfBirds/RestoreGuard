@@ -44,6 +44,13 @@ internal sealed class FakeLabSsh : ISshProvider
                 ? Ok("256\n")
                 : Task.FromResult(new SshResult(0, "0\n", "Include pattern never matched."));
 
+        // Docker-binary probe (wizard docker-path question): quoted path after
+        // `command -v` — distinct from the smartctl probe, which is unquoted.
+        if (command.StartsWith("command -v '"))
+            return command.Contains("'docker'") || command.Contains("/usr/bin/docker")
+                ? Ok("")
+                : Fail("");
+
         // Checked before "echo ok": the smartctl capability probe contains both.
         if (command.Contains("smartctl"))
             return Ok(hostAlias switch

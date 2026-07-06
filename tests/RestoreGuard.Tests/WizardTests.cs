@@ -194,6 +194,93 @@ public class WizardTests : IDisposable
         Assert.Contains("12 dump file(s) found", output);
     }
 
+    // ---------- ask-time hardening (from the 2026-07-06 dialogue review) ----------
+
+    [Fact]
+    public async Task DockerPathTypo_Rejected_EmptyFallsBackToPlainDocker()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "/opt/nodocker", "n", "",      // bad path -> don't keep -> Enter -> plain docker
+            "", "n", "n", "n", "", "");
+
+        Assert.True(ok);
+        Assert.Contains("no docker binary at '/opt/nodocker' on nas", output);
+        Assert.Contains("(using plain `docker`)", output);
+        Assert.Equal("docker", Assert.Single(RestoreGuardConfig.Load(ConfigPath).DockerHosts).DockerPath);
+    }
+
+    [Fact]
+    public async Task DumpMethodTypo_ReAskedUntilValid()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",
+            "y", "", "", "pgdump", "mysqldump", "n",  // typo -> re-asked -> corrected
+            "n", "n", "", "");
+
+        Assert.True(ok);
+        Assert.Contains("'pgdump' is not one of: pg_dumpall, mysqldump, mongodump", output);
+        Assert.Equal("mysqldump", Assert.Single(RestoreGuardConfig.Load(ConfigPath).LogicalDbBackups!).Method);
+    }
+
+    [Fact]
+    public async Task YesNoTypo_ReAsksInsteadOfSilentlyMeaningNo()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",
+            "yws", "n",                           // typo -> re-asked -> no
+            "n", "n", "", "");
+
+        Assert.True(ok);
+        Assert.Contains("Please answer y or n (Enter = no).", output);
+        Assert.Null(RestoreGuardConfig.Load(ConfigPath).LogicalDbBackups);
+    }
+
+    [Fact]
+    public async Task HoursGarbage_ReAskedInsteadOfSilentDefault()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n",
+            "d", "nas", "/var/backups/db-prod", "",
+            "two days", "",                       // garbage -> re-asked -> Enter = default
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("'two days' is not a positive number of hours", output);
+        Assert.Equal(26d, Assert.Single(RestoreGuardConfig.Load(ConfigPath).FileBackups!).MaxAgeHours);
+    }
+
+    [Fact]
+    public async Task PveEmptyNodeNameAfterRejection_SkipsNodeInsteadOfWritingInvalidConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",
+            "n",
+            "y", "pve", "wrongnode", "n", "",     // rejected node name -> Enter -> node skipped
+            "",                                   // pve: done (no nodes)
+            "n", "", "");
+
+        Assert.True(ok);
+        Assert.Contains("Skipping this node (no node name).", output);
+        var config = RestoreGuardConfig.Load(ConfigPath);
+        Assert.Null(config.PveNodes);
+        Assert.Empty(config.Validate()); // the old behavior wrote pveNodes[0].node = ""
+    }
+
+    [Fact]
+    public async Task PveEmptyStorageList_WarnsEveryGuestWillBeRed()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n",
+            "y", "pve", "", "",                   // node default ok; storages EMPTY
+            "",
+            "n", "", "");
+
+        Assert.True(ok);
+        Assert.Contains("no backup storages listed", output);
+        Assert.Contains("image-backup/uncovered", output);
+        Assert.Null(Assert.Single(RestoreGuardConfig.Load(ConfigPath).PveNodes!).BackupStorages);
+    }
+
     // ---------- SMART capability ----------
 
     [Fact]

@@ -149,8 +149,21 @@ public static class InteractiveMode
                 $"Docker host #{dockerHosts.Count + 1} SSH destination (e.g. nas or root@192.168.1.10; Enter = {(dockerHosts.Count == 0 ? "skip Docker" : "done")})");
             if (alias.Length == 0)
                 break;
-            dockerHosts.Add(new DockerHostConfig(alias,
-                Ask(io, "  path to docker on that host (Enter if plain `docker` works there)", "docker")));
+            var dockerPath = await AskProbedAsync(io,
+                "  path to docker on that host (Enter if plain `docker` works there)", "docker",
+                async p =>
+                {
+                    var r = await ssh.RunAsync(alias, $"command -v {Sh(p)} > /dev/null 2>&1 || [ -x {Sh(p)} ]");
+                    return r.ExitCode == 0
+                        ? (true, "docker binary found")
+                        : (false, $"no docker binary at '{p}' on {alias} — check the path (`which docker` there)");
+                });
+            if (dockerPath.Length == 0)
+            {
+                dockerPath = "docker"; // skipped after a rejection: fall back to PATH lookup
+                io.WriteLine("  (using plain `docker`)");
+            }
+            dockerHosts.Add(new DockerHostConfig(alias, dockerPath));
         }
 
         io.WriteLine();
@@ -180,7 +193,16 @@ public static class InteractiveMode
                     });
                 if (path.Length > 0)
                 {
-                    var method = Ask(io, "  which tool writes these dumps (pg_dumpall or mysqldump)", "pg_dumpall");
+                    // Validated at ask time: a typo'd method would otherwise be accepted
+                    // silently and only explode at config load.
+                    string method;
+                    while (true)
+                    {
+                        method = Ask(io, "  which tool writes these dumps (pg_dumpall, mysqldump, or mongodump)", "pg_dumpall");
+                        if (method is "pg_dumpall" or "mysqldump" or "mongodump")
+                            break;
+                        io.WriteLine($"  PROBLEM — '{method}' is not one of: pg_dumpall, mysqldump, mongodump.");
+                    }
                     var prodOnly = AskYesNo(io, "  does this job dump ONLY containers named 'prod' (skipping 'staging')?");
                     logicalDb = new LogicalDbBackupConfig(host, path, [host],
                         Method: method, RequireProdNaming: prodOnly);
@@ -210,6 +232,13 @@ public static class InteractiveMode
                         var r = await ssh.RunAsync(alias, $"pvesh get /nodes/{Sh(n)}/status --output-format json > /dev/null");
                         return r.ExitCode == 0 ? (true, "node found") : (false, "no node with that name — check the Proxmox UI sidebar");
                     });
+                if (node.Length == 0)
+                {
+                    // Enter after a rejected node name: without this guard the wizard
+                    // would write a config its own validation rejects.
+                    io.WriteLine("  Skipping this node (no node name).");
+                    continue;
+                }
                 var storages = await AskProbedAsync(io, "  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local)", "",
                     async s =>
                     {
@@ -221,6 +250,11 @@ public static class InteractiveMode
                         }
                         return (true, "all storages readable");
                     });
+                if (storages.Length == 0)
+                {
+                    io.WriteLine("  NOTE: no backup storages listed — every guest on this node will show RED");
+                    io.WriteLine("  (image-backup/uncovered) until storages to read backups from are added.");
+                }
                 pveNodes.Add(new PveNodeConfig(alias, node,
                     storages.Length == 0 ? null : storages.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)));
             }
@@ -286,7 +320,9 @@ public static class InteractiveMode
                         $"  SSH destination of the machine that can open the {tool} repo (e.g. nas or root@192.168.1.10; Enter = cancel)");
                     if (host.Length == 0)
                         break;
-                    var repo = Ask(io, $"  {tool} repository (a path like /mnt/nas/{tool}-repo; restic also takes s3:/sftp: URLs)", "");
+                    var repo = Ask(io, $"  {tool} repository (a path like /mnt/nas/{tool}-repo; {(isBorg
+                        ? "borg also takes ssh://user@host/path"
+                        : "restic also takes s3:/sftp: URLs")})", "");
                     if (repo.Length == 0)
                         break;
                     var passFile = await AskProbedAsync(io,
@@ -306,8 +342,10 @@ public static class InteractiveMode
                     // The restore canary is probed LIVE: a real dump/extract of the file
                     // from the latest snapshot, byte-counted on the host — the same
                     // command every audit will run.
+                    io.WriteLine("  Optional restore canary: every audit restores one small file from the latest");
+                    io.WriteLine("  snapshot as proof the repo actually restores (read-only, counted on the host).");
                     var canary = await AskProbedAsync(io,
-                        "  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip)",
+                        "  canary file that is ALWAYS in this backup (e.g. /etc/fstab; Enter = skip)",
                         "",
                         async c =>
                         {
@@ -599,8 +637,15 @@ public static class InteractiveMode
 
     private static double AskHours(WizardIO io, double defaultHours)
     {
-        var answer = Ask(io, "  alert when the newest backup is older than (hours)", defaultHours.ToString());
-        return double.TryParse(answer, out var h) && h > 0 ? h : defaultHours;
+        // Re-asks on garbage instead of silently using the default — the only
+        // acceptable silent path is Enter, which IS the default.
+        while (true)
+        {
+            var answer = Ask(io, "  alert when the newest backup is older than (hours)", defaultHours.ToString());
+            if (double.TryParse(answer, out var h) && h > 0)
+                return h;
+            io.WriteLine($"  PROBLEM — '{answer}' is not a positive number of hours (Enter = {defaultHours}).");
+        }
     }
 
     private static string Ask(WizardIO io, string prompt, string defaultValue)
@@ -612,7 +657,21 @@ public static class InteractiveMode
 
     private static bool AskYesNo(WizardIO io, string prompt)
     {
-        io.Write($"{prompt} [y/N]: ");
-        return (io.ReadLine()?.Trim().ToLowerInvariant() ?? "") is "y" or "yes";
+        // A typo must not silently count as "no" — a mistyped yes would skip a
+        // whole section without a word. Only Enter/n/no mean no; EOF means no.
+        while (true)
+        {
+            io.Write($"{prompt} [y/N]: ");
+            switch (io.ReadLine()?.Trim().ToLowerInvariant())
+            {
+                case "y" or "yes":
+                    return true;
+                case "" or "n" or "no" or null:
+                    return false;
+                default:
+                    io.WriteLine("  Please answer y or n (Enter = no).");
+                    break;
+            }
+        }
     }
 }

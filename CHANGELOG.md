@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Wizard dialogue hardening (from the full-dialogue review): the docker path is
+  now probed on the host; the dump method is validated at ask time (and the
+  prompt now mentions `mongodump`); yes/no typos and garbage hour values are
+  re-asked instead of silently meaning no/default; a rejected-then-skipped PVE
+  node name no longer writes an invalid config; an empty PVE storage list warns
+  that every guest will show RED; the borg repo prompt shows borg's remote
+  syntax instead of restic's; the restore-canary prompt is shorter with a
+  two-line explainer.
+
 ### Added
 
 - **Restore canary** (`fileBackups[].canaryPath`, restic/borg): every audit
