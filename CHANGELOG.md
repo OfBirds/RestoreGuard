@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Generic off-site sync jobs** (`offsiteJobs`): any scheduled rclone script
+  that logs the documented start/finish markers — multiple jobs, optional
+  capacity probe (`rcloneRemote`), and a job whose log has no runs at all is now
+  RED `offsite/never-ran` instead of silently checking nothing. `pbsOffsite`
+  keeps working as the legacy single-job flavor. Wizard section parses the log
+  live (shows the last run + rc before accepting); doctor preflights log + remote.
 - **ZFS snapshot & replication check** (`zfsReplications`): sanoid/syncoid or
   plain `zfs send` on any SSH host. Source dataset must keep getting snapshots
   (`zfs-replication/no-snapshots`, `/snapshot-stale`); a configured replica's

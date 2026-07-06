@@ -77,8 +77,29 @@
     "maxSyncAgeHours": 26
   },
 
-  // Off-site copy of the PBS datastore via an rclone sync script that logs
-  // "=== <ts> sync start ===" / "=== sync finished rc=N ===" lines.
+  // Off-site sync jobs: any scheduled rclone script that logs
+  // "=== <yyyy-MM-dd HH:mm> ... sync start ===" / "=== sync finished rc=N ===".
+  // rcloneRemote is optional (capacity via `rclone about`; skip for backends
+  // without about-support). Every configured job must have run: an empty log
+  // is RED offsite/never-ran.
+  "offsiteJobs": [
+    {
+      "name": "pbs to onedrive",
+      "alias": "mypve",
+      "logPath": "/var/log/pbs-onedrive-sync.log",
+      "rcloneRemote": "onedrive:",
+      "maxSyncAgeHours": 26
+    },
+    {
+      // log-only: no capacity probe.
+      "name": "nightly usb copy",
+      "alias": "myotherhost",
+      "logPath": "/var/log/usb-sync.log"
+    }
+  ],
+
+  // LEGACY: the older single-job, PBS-flavored version of offsiteJobs — still
+  // works, but prefer offsiteJobs for anything new.
   "pbsOffsite": {
     "alias": "mypve",
     "logPath": "/var/log/pbs-onedrive-sync.log",

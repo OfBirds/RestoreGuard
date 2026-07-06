@@ -29,6 +29,11 @@ public class DoctorTests
         [
             new("pve data", "lab99", "tank/data", "lab142", "backup/pve-data"),
             new("scratch", "lab99", "tank/scratch"),
+        ],
+        OffsiteJobs:
+        [
+            new("onedrive push", "lab99", "/var/log/pbs-onedrive-sync.log", "onedrive:"),
+            new("usb copy", "lab55", "/var/log/usb-sync.log"),
         ]);
 
     [Fact]
@@ -36,12 +41,12 @@ public class DoctorTests
     {
         var probes = Doctor.BuildProbes(FullConfig());
 
-        // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 offsite
+        // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 legacy-offsite
         // + 1 maintenance + 2 smart + 6 file-backup + 2 restore-canary
-        // + 3 zfs (source+target, source-only)
-        Assert.Equal(23, probes.Count);
+        // + 3 zfs (source+target, source-only) + 2 offsite jobs
+        Assert.Equal(25, probes.Count);
         Assert.Equal(
-            ["db-dumps", "docker", "file-backup", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas", "zfs-replication"],
+            ["db-dumps", "docker", "file-backup", "offsite", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "truenas", "zfs-replication"],
             probes.Select(p => p.Area).Distinct().Order(StringComparer.Ordinal).ToList());
 
         // The per-host docker path quirk carries into the probe command.
@@ -53,6 +58,19 @@ public class DoctorTests
         Assert.Contains(probes, p => p.Command.StartsWith("restic", StringComparison.Ordinal));
         Assert.Contains(probes, p => p.Command.Contains("BORG_PASSCOMMAND"));
         Assert.Contains(probes, p => p.Command.Contains("qm guest cmd 9000 ping"));
+    }
+
+    [Fact]
+    public void OffsiteJobs_ProbeLogAndOptionallyTheRemote()
+    {
+        var probes = Doctor.BuildProbes(FullConfig()).Where(p => p.Area == "offsite").ToList();
+
+        Assert.Equal(2, probes.Count);
+        var withRemote = Assert.Single(probes, p => p.Host == "lab99");
+        Assert.Equal("test -r '/var/log/pbs-onedrive-sync.log' && rclone about onedrive: --json > /dev/null", withRemote.Command);
+        var logOnly = Assert.Single(probes, p => p.Host == "lab55");
+        Assert.Equal("test -r '/var/log/usb-sync.log'", logOnly.Command);
+        Assert.Equal("sync log readable (usb copy)", logOnly.Requirement);
     }
 
     [Fact]

@@ -59,6 +59,10 @@ public class WizardTranscriptTests
                 "y", "nas", "backup/pve-data",               // replicated to nas
                 "", "",                                      // name default, hours default
                 "",                                          // zfs: done
+                "y", "pve", "/var/log/offsite-sync.log",     // offsite: log parsed live
+                "onedrive:",                                 // remote answers rclone about
+                "", "",                                      // name default, hours default
+                "",                                          // offsite: done
                 "r", "nas", "/mnt/restic-repo", "", "/etc/fstab", "", "",  // restic + canary
                 "b", "nas", "/backups/borg", "", "/etc/fstab", "", "",     // borg + canary
                 "d", "nas", "/var/backups/db-prod", "", "",  // dir
@@ -97,6 +101,11 @@ public class WizardTranscriptTests
                 "y", "",                                     // replicated, but Enter for the replica host
                 "", "",                                      // name, hours
                 "",                                          // zfs: done
+                "y", "pve", "/var/log/nope.log", "n", "",    // offsite: bad log -> don't keep -> job skipped
+                "pve", "/var/log/offsite-sync.log",          // retry with the real log
+                "badremote:", "n", "",                       // rclone about fails -> skip capacity
+                "", "",                                      // name, hours
+                "",                                          // offsite: done
                 "b", "nas", "/backups/borg",
                 "/root/.wrong-pass", "n", "",                // wrong passphrase -> don't keep -> source cancelled
                 "r", "nas", "/mnt/restic-repo", "",
@@ -122,6 +131,7 @@ public class WizardTranscriptTests
                 "n",                                         // pve: no
                 "n",                                         // truenas: no
                 "n",                                         // zfs: no
+                "n",                                         // offsite: no
                 "",                                          // file backups: skip
                 "",                                          // smart: skip
             ]),

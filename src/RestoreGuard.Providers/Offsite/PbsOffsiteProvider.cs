@@ -11,6 +11,17 @@ public sealed record PbsOffsiteConfig(
     string RcloneRemote,
     string TargetName);
 
+/// <summary>A generic rclone-style off-site sync job: a wrapper script that logs
+/// "=== &lt;yyyy-MM-dd HH:mm&gt; ... sync start ===" / "=== sync finished rc=N ==="
+/// lines. RcloneRemote is optional — set it to also watch the remote's capacity
+/// (`rclone about`; not every backend supports it).</summary>
+public sealed record OffsiteJobConfig(
+    string Name,
+    string Alias,
+    string LogPath,
+    string? RcloneRemote = null,
+    double MaxSyncAgeHours = 26);
+
 /// <summary>
 /// Off-site tier for a PBS datastore synced by a wrapper script that logs each
 /// run ("=== &lt;ts&gt; sync start ===" … "=== sync finished rc=N ==="), with
@@ -20,6 +31,41 @@ public sealed record PbsOffsiteConfig(
 public sealed partial class PbsOffsiteProvider(ISshProvider ssh)
 {
     public sealed record OffsiteState(BackupArtifact? LastSync, StorageTarget Remote);
+
+    /// <summary>Generic-job state: LastSync is null when the log has no runs at all
+    /// (the check turns that into offsite/never-ran); Remote is null when no
+    /// rcloneRemote was configured.</summary>
+    public sealed record OffsiteJobState(BackupArtifact? LastSync, StorageTarget? Remote);
+
+    /// <summary>The generic flavor of <see cref="GetAsync"/>: same log contract,
+    /// job identified by its configured name, capacity probe only when a remote
+    /// is configured.</summary>
+    public async Task<OffsiteJobState> GetJobAsync(OffsiteJobConfig config, CancellationToken ct = default)
+    {
+        var log = await RunAsync(config.Alias, $"tail -n 200 '{config.LogPath}'", ct);
+
+        var lastRun = ParseLastRun(log);
+        var artifact = lastRun is null
+            ? null
+            : new BackupArtifact(
+                Tier: BackupTier.CloudSync,
+                TargetService: config.Name,
+                Location: $"{config.RcloneRemote ?? config.LogPath} ({config.Name} on {config.Alias})",
+                Timestamp: lastRun.Value.Start,
+                SizeBytes: 0,
+                Method: "rclone-offsite",
+                HasOffsiteCopy: true,
+                Status: lastRun.Value.Rc == 0 ? "ok" : "failed");
+
+        StorageTarget? remote = null;
+        if (config.RcloneRemote is { Length: > 0 } r)
+        {
+            var about = await RunAsync(config.Alias, $"rclone about {r} --json", ct);
+            remote = ParseAbout(about, new PbsOffsiteConfig(config.Alias, config.LogPath, r, config.Name));
+        }
+
+        return new OffsiteJobState(artifact, remote);
+    }
 
     public async Task<OffsiteState> GetAsync(PbsOffsiteConfig config, CancellationToken ct = default)
     {

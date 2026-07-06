@@ -56,6 +56,23 @@ The classic silent killer: your backup job archives the path the compose file
 | `three-two-one/image-local-only` | YELLOW | *every* image backup of a guest lives on non-shared storage of its own node — one disk or host failure takes the guest and all its copies together. Give it a copy that survives the node (PBS/shared storage, or sync the dump dir off the box)
 |===
 
+== Off-site sync jobs (`offsiteJobs`)
+
+Any scheduled rclone (or rclone-style) sync script that logs its runs with
+`=== <yyyy-MM-dd HH:mm> ... sync start ===` and `=== sync finished rc=N ===`
+markers. With `rcloneRemote` set, the remote's occupancy also feeds the storage
+capacity check (`rclone about` — not every backend supports it).
+
+[cols="2,1,4"]
+|===
+| `offsite/never-ran` | RED | the log has no runs at all — the job never ran, or its script doesn't write the documented markers
+| `offsite/failed` | RED | the last run exited non-zero (or never logged a finish line — a killed run)
+| `offsite/stale` | RED | no successful run within `maxSyncAgeHours`
+|===
+
+NOTE: `pbsOffsite` (below) is the older, single-job PBS-specific flavor of this
+check and keeps working; new configs should prefer `offsiteJobs`.
+
 == PBS hygiene (`pbsMaintenance`, `pbsOffsite`)
 
 [cols="2,1,4"]

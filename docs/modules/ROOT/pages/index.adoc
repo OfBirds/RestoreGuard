@@ -68,7 +68,8 @@ xref:configuration.adoc[configuration reference]):
   host: the snapshot job still runs, and the replica is still catching up.
 * *TrueNAS SCALE* — ZFS snapshot freshness, cloud-sync task health, datasets
   that never leave the box, pool health and scrub age.
-* *Off-site copies* — the sync ran, succeeded, and the destination has room.
+* *Off-site copies* — every scheduled rclone sync job ran, succeeded, and is
+  recent; the destination has room. A job that never ran is a finding, not a gap.
 * *Disks* — SMART health on the machines that own the physical disks.
 
 The full rule catalog is in xref:checks.adoc[What gets checked].

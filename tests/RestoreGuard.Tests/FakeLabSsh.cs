@@ -44,6 +44,16 @@ internal sealed class FakeLabSsh : ISshProvider
                 ? Ok("256\n")
                 : Task.FromResult(new SshResult(0, "0\n", "Include pattern never matched."));
 
+        // Off-site job probes: a sync log with run markers, and rclone capacity.
+        if (command.StartsWith("tail "))
+            return command.Contains("'/var/log/offsite-sync.log'")
+                ? Ok(Fixtures.Read("pbs-sync-log-tail.txt"))
+                : Fail("tail: cannot open: No such file or directory");
+        if (command.StartsWith("rclone about"))
+            return command.Contains("onedrive:")
+                ? Ok("""{"total":5497558138880,"used":3848290697216,"free":1649267441664}""")
+                : Fail("didn't find section in config file");
+
         // ZFS snapshot listings: tank/data has fresh-ish sanoid snapshots,
         // backup/pve-data is its replica with one shipped snapshot; anything
         // else is not a dataset.

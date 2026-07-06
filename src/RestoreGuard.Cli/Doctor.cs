@@ -58,6 +58,16 @@ public static class Doctor
                 "sync log readable and the rclone remote authenticates"));
         }
 
+        foreach (var o in config.OffsiteJobs ?? [])
+        {
+            probes.Add(new DoctorProbe(o.Alias, "offsite", o.RcloneRemote is { Length: > 0 } r
+                    ? $"test -r '{o.LogPath}' && rclone about {r} --json > /dev/null"
+                    : $"test -r '{o.LogPath}'",
+                o.RcloneRemote is { Length: > 0 }
+                    ? $"sync log readable and the rclone remote authenticates ({o.Name})"
+                    : $"sync log readable ({o.Name})"));
+        }
+
         if (config.PbsMaintenance is { } pm)
         {
             probes.Add(new DoctorProbe(pm.ExecAlias, "pbs-maintenance",

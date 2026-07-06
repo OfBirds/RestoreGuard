@@ -16,7 +16,8 @@ public sealed record RestoreGuardConfig(
     IReadOnlyList<string>? SmartHosts,
     IReadOnlyList<RestoreGuard.Providers.FileBackups.FileBackupSource>? FileBackups,
     string? SuppressionsFile,
-    IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null)
+    IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null,
+    IReadOnlyList<RestoreGuard.Providers.Offsite.OffsiteJobConfig>? OffsiteJobs = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -106,6 +107,13 @@ public sealed record RestoreGuardConfig(
             // Target comes as a pair or not at all — half a target silently checks nothing.
             if (string.IsNullOrWhiteSpace(z.TargetAlias) != string.IsNullOrWhiteSpace(z.TargetDataset))
                 errors.Add($"zfsReplications[{i}] needs BOTH targetAlias and targetDataset (or neither for snapshot-only).");
+        }
+
+        foreach (var (o, i) in (OffsiteJobs ?? []).Select((o, i) => (o, i)))
+        {
+            if (string.IsNullOrWhiteSpace(o.Name)) errors.Add($"offsiteJobs[{i}].name is empty.");
+            if (string.IsNullOrWhiteSpace(o.Alias)) errors.Add($"offsiteJobs[{i}].alias is empty.");
+            if (string.IsNullOrWhiteSpace(o.LogPath)) errors.Add($"offsiteJobs[{i}].logPath is empty.");
         }
 
         if (PbsOffsite is { } off && string.IsNullOrWhiteSpace(off.Alias))

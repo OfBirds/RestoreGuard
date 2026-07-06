@@ -349,6 +349,51 @@ public static class InteractiveMode
         }
 
         io.WriteLine();
+        io.WriteLine("--- Off-site sync jobs (rclone wrapper scripts that log their runs) ---");
+        var offsiteJobs = new List<Providers.Offsite.OffsiteJobConfig>();
+        if (AskYesNo(io, "Do you sync backups off-site with a scheduled rclone script?"))
+        {
+            io.WriteLine("  The script must log '=== <yyyy-MM-dd HH:mm> ... sync start ===' and");
+            io.WriteLine("  '=== sync finished rc=N ===' lines (see the docs for a template).");
+            while (true)
+            {
+                var alias = await AskSshDestinationAsync(ssh, io,
+                    $"Job #{offsiteJobs.Count + 1}: SSH destination of the machine running it (Enter = {(offsiteJobs.Count == 0 ? "skip" : "done")})");
+                if (alias.Length == 0)
+                    break;
+                var logPath = await AskProbedAsync(io, "  path of the job's log file", "",
+                    async p =>
+                    {
+                        var r = await ssh.RunAsync(alias, $"tail -n 200 {Sh(p)}");
+                        if (r.ExitCode != 0)
+                            return (false, "log not readable there — check the path");
+                        var lastRun = Providers.Offsite.PbsOffsiteProvider.ParseLastRun(r.StdOut);
+                        return lastRun is null
+                            ? (false, "log readable, but it has no '=== <ts> ... sync start ===' lines — the audit would report offsite/never-ran (keep anyway if the job just hasn't run yet)")
+                            : (true, $"log readable — last run {lastRun.Value.Start:yyyy-MM-dd HH:mm}, rc={lastRun.Value.Rc}");
+                    });
+                if (logPath.Length == 0)
+                {
+                    io.WriteLine("  Skipping this job (no log path).");
+                    continue;
+                }
+                var remote = await AskProbedAsync(io,
+                    "  rclone remote to watch for capacity (e.g. onedrive: ; Enter = skip capacity)", "",
+                    async rm =>
+                    {
+                        var r = await ssh.RunAsync(alias, $"rclone about {rm} --json > /dev/null");
+                        return r.ExitCode == 0
+                            ? (true, "remote answers `rclone about`")
+                            : (false, "`rclone about` failed — check the remote name (some backends don't support about)");
+                    });
+                offsiteJobs.Add(new(
+                    Ask(io, "  a name for this job", $"offsite {alias} {Path.GetFileNameWithoutExtension(logPath)}"),
+                    alias, logPath, remote.Length > 0 ? remote : null,
+                    MaxSyncAgeHours: AskHours(io, 26)));
+            }
+        }
+
+        io.WriteLine();
         io.WriteLine("--- File-level backups (restic, borg, folders of archives, Home Assistant) ---");
         var fileBackups = new List<Providers.FileBackups.FileBackupSource>();
         while (true)
@@ -565,6 +610,7 @@ public static class InteractiveMode
             configured.Add($"{zfsReplications.Count} ZFS dataset(s)"
                 + (replicated > 0 ? $" ({replicated} replicated)" : ""));
         }
+        if (offsiteJobs.Count > 0) configured.Add($"{offsiteJobs.Count} off-site job(s)");
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
 
         if (configured.Count == 0)
@@ -581,7 +627,8 @@ public static class InteractiveMode
             SmartHosts: smartHosts.Count > 0 ? smartHosts : null,
             FileBackups: fileBackups.Count > 0 ? fileBackups : null,
             SuppressionsFile: "suppressions.json",
-            ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null);
+            ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null,
+            OffsiteJobs: offsiteJobs.Count > 0 ? offsiteJobs : null);
 
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
         var suppressionsPath = Path.Combine(configDir, "suppressions.json");
@@ -594,8 +641,8 @@ public static class InteractiveMode
             Configured: {string.Join(", ", configured)}.
             Wrote {configPath} (+ suppressions.json for known exceptions later).
 
-            More to add later? Off-site sync checks and PBS GC/verify hygiene are
-            documented with examples in restoreguard.sample.json.
+            More to add later? PBS GC/verify hygiene (pbsMaintenance) is documented
+            with examples in restoreguard.sample.json.
             """);
         return true;
     }

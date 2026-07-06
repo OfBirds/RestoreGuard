@@ -123,6 +123,29 @@ Dataset #1: SSH destination of the machine holding it (Enter = skip): «pve»
   alert when the newest backup is older than (hours) [26]: «Enter»
 Dataset #2: SSH destination of the machine holding it (Enter = done): «Enter»
 
+--- Off-site sync jobs (rclone wrapper scripts that log their runs) ---
+Do you sync backups off-site with a scheduled rclone script? [y/N]: «y»
+  The script must log '=== <yyyy-MM-dd HH:mm> ... sync start ===' and
+  '=== sync finished rc=N ===' lines (see the docs for a template).
+Job #1: SSH destination of the machine running it (Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  path of the job's log file: «/var/log/nope.log»
+  checking ... PROBLEM — log not readable there — check the path
+  Keep this value anyway? [y/N]: «n»
+  path of the job's log file: «Enter»
+  Skipping this job (no log path).
+Job #1: SSH destination of the machine running it (Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  path of the job's log file: «/var/log/offsite-sync.log»
+  checking ... OK — log readable — last run 2026-07-04 05:00, rc=0
+  rclone remote to watch for capacity (e.g. onedrive: ; Enter = skip capacity): «badremote:»
+  checking ... PROBLEM — `rclone about` failed — check the remote name (some backends don't support about)
+  Keep this value anyway? [y/N]: «n»
+  rclone remote to watch for capacity (e.g. onedrive: ; Enter = skip capacity): «Enter»
+  a name for this job [offsite pve offsite-sync]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Job #2: SSH destination of the machine running it (Enter = done): «Enter»
+
 --- File-level backups (restic, borg, folders of archives, Home Assistant) ---
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «b»
   SSH destination of the machine that can open the borg repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
@@ -168,11 +191,11 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
   checking for smartctl and physical disks ... OK
 SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), SMART on 1 host(s).
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), SMART on 1 host(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
-More to add later? Off-site sync checks and PBS GC/verify hygiene are
-documented with examples in restoreguard.sample.json.
+More to add later? PBS GC/verify hygiene (pbsMaintenance) is documented
+with examples in restoreguard.sample.json.
 -------------------------------------------------------------------------------
 
 Wizard result: config written
@@ -233,6 +256,14 @@ Wizard result: config written
       "maxSnapshotAgeHours": 26,
       "maxReplicaAgeHours": 26
     }
+  ],
+  "offsiteJobs": [
+    {
+      "name": "offsite pve offsite-sync",
+      "alias": "pve",
+      "logPath": "/var/log/offsite-sync.log",
+      "maxSyncAgeHours": 26
+    }
   ]
 }
 
@@ -254,14 +285,19 @@ Wizard result: config written
  15. [pve] zfs list -H -p -t snapshot -o name,creation -s creation -d 1 'tank/typo'
  16. [pve] echo ok
  17. [pve] zfs list -H -p -t snapshot -o name,creation -s creation -d 1 'tank/data'
- 18. [nas] echo ok
- 19. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
- 20. [nas] echo ok
- 21. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
- 22. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
- 23. [truenas] echo ok
- 24. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 18. [pve] echo ok
+ 19. [pve] tail -n 200 '/var/log/nope.log'
+ 20. [pve] echo ok
+ 21. [pve] tail -n 200 '/var/log/offsite-sync.log'
+ 22. [pve] rclone about badremote: --json > /dev/null
+ 23. [nas] echo ok
+ 24. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
  25. [nas] echo ok
- 26. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
- 27. [hypervisor] echo ok
- 28. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 26. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
+ 27. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
+ 28. [truenas] echo ok
+ 29. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 30. [nas] echo ok
+ 31. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 32. [hypervisor] echo ok
+ 33. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks

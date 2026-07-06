@@ -30,7 +30,7 @@ public class WizardTests : IDisposable
             "y", "", "", "", "y",                 // dumps: yes, default host+path, pg_dumpall, prod-naming
             "y", "pve", "", "pbs-store", "",      // pve: node default 'pve', storage ok, done
             "y", "truenas", "tank/private", "",   // truenas + one excluded dataset
-            "n",                                  // zfs: no
+            "n", "n",                             // zfs: no, offsite: no
             "",                                   // file backups: skip
             "hypervisor", "");                    // smart: one good host, done
 
@@ -240,7 +240,7 @@ public class WizardTests : IDisposable
     public async Task HoursGarbage_ReAskedInsteadOfSilentDefault()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n", "n",
+            "", "n", "n", "n", "n", "n",
             "d", "nas", "/var/backups/db-prod", "",
             "two days", "",                       // garbage -> re-asked -> Enter = default
             "", "");
@@ -289,7 +289,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",
-            "n", "n", "n", "n",
+            "n", "n", "n", "n", "n",
             "",                                   // file backups: skip
             "truenas", "n",                       // ssh ok, but missing-tool -> don't add
             "hypervisor", "");                    // fine
@@ -304,7 +304,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",
-            "n", "n", "n", "n",
+            "n", "n", "n", "n", "n",
             "",                                   // file backups: skip
             "nas", "n", "");                      // ssh ok, no disks -> don't add
 
@@ -320,7 +320,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_AddsBorgSource_ProbingTheRepo()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n", "n",               // skip docker/dumps/pve/truenas/zfs
+            "", "n", "n", "n", "n", "n",          // skip dumps/pve/truenas/zfs/offsite
             "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
             "",                                   // canary: skip
             "", "",                               // name default, hours default
@@ -343,7 +343,7 @@ public class WizardTests : IDisposable
     {
         var (ok, output) = await RunWizardAsync(
             "nas", "", "",                        // one docker host so the config isn't empty
-            "n", "n", "n", "n",
+            "n", "n", "n", "n", "n",
             "b", "nas", "/backups/borg",
             "/root/.wrong-pass", "n", "",         // probe fails -> don't keep -> Enter skips -> source cancelled
             "",                                   // file backups: done
@@ -358,7 +358,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_AddsResticAndDirSources()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n", "n",
+            "", "n", "n", "n", "n", "n",
             "r", "nas", "/mnt/restic-repo", "", "", "", "",   // restic ok with default passfile, canary skipped
             "d", "nas", "/var/backups/db-prod", "", "",       // dir with real folder
             "", "");
@@ -376,7 +376,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_CanaryIsProbedLive_AndWrittenToConfig()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n", "n",
+            "", "n", "n", "n", "n", "n",
             "b", "nas", "/backups/borg", "",      // borg on nas; passfile default probes OK
             "/etc/fstab",                          // canary — live-probed: extract restores 256 bytes
             "", "",                                // name, hours
@@ -393,7 +393,7 @@ public class WizardTests : IDisposable
     public async Task Wizard_CanaryThatDoesNotRestore_FailsLoud_SkipKeepsSourceWithoutCanary()
     {
         var (ok, output) = await RunWizardAsync(
-            "", "n", "n", "n", "n",
+            "", "n", "n", "n", "n", "n",
             "r", "nas", "/mnt/restic-repo", "",   // restic ok with default passfile
             "/nope.conf", "n", "",                // canary restores 0 bytes -> don't keep -> Enter skips
             "", "",                               // name, hours
@@ -448,6 +448,52 @@ public class WizardTests : IDisposable
         var config = RestoreGuardConfig.Load(ConfigPath);
         Assert.Null(config.ZfsReplications);
         Assert.Empty(config.Validate());
+    }
+
+    // ---------- off-site jobs through the wizard ----------
+
+    [Fact]
+    public async Task Wizard_OffsiteJob_LogParsedLive_RemoteProbed_WrittenToConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n", "n",
+            "y",                                  // offsite: yes
+            "pve", "/var/log/offsite-sync.log",   // log probed: last run parsed out of it
+            "onedrive:",                          // remote answers rclone about
+            "", "",                               // name default, hours default
+            "",                                   // offsite: done
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("log readable — last run 2026-07-04 05:00, rc=0", output);
+        Assert.Contains("remote answers `rclone about`", output);
+        Assert.Contains("1 off-site job(s)", output);
+        var config = RestoreGuardConfig.Load(ConfigPath);
+        Assert.Empty(config.Validate());
+        var job = Assert.Single(config.OffsiteJobs!);
+        Assert.Equal(("pve", "/var/log/offsite-sync.log", "onedrive:", "offsite pve offsite-sync"),
+            (job.Alias, job.LogPath, job.RcloneRemote, job.Name));
+    }
+
+    [Fact]
+    public async Task Wizard_OffsiteBadLog_RejectedThenSkipped_BadRemoteSkipsCapacity()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "nas", "", "",                        // docker host so the config isn't empty
+            "n", "n", "n", "n",
+            "y", "pve", "/var/log/nope.log", "n", "",  // bad log -> don't keep -> Enter -> job skipped
+            "pve", "/var/log/offsite-sync.log",   // retry with the real log
+            "badremote:", "n", "",                // rclone about fails -> don't keep -> Enter -> no capacity
+            "", "",                               // name, hours
+            "",                                   // offsite: done
+            "", "");
+
+        Assert.True(ok);
+        Assert.Contains("log not readable there", output);
+        Assert.Contains("Skipping this job (no log path).", output);
+        Assert.Contains("`rclone about` failed", output);
+        var job = Assert.Single(RestoreGuardConfig.Load(ConfigPath).OffsiteJobs!);
+        Assert.Null(job.RcloneRemote);
     }
 
     // ---------- setup / backup ----------

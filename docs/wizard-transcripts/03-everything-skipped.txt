@@ -49,6 +49,9 @@ Do you run TrueNAS SCALE? [y/N]: «n»
 --- ZFS snapshots & replication (sanoid/syncoid or zfs send, outside TrueNAS) ---
 Do you snapshot/replicate ZFS datasets that RestoreGuard should watch? [y/N]: «n»
 
+--- Off-site sync jobs (rclone wrapper scripts that log their runs) ---
+Do you sync backups off-site with a scheduled rclone script? [y/N]: «n»
+
 --- File-level backups (restic, borg, folders of archives, Home Assistant) ---
 Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «Enter»
 

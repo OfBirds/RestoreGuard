@@ -54,8 +54,9 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
   fresh (a dead replication *looks* fine — the replica keeps its old snapshots).
 - **TrueNAS** — ZFS snapshot freshness, cloud-sync tasks succeeding, top-level
   datasets that never leave the box, pool health + scrub age.
-- **Off-site freshness & capacity** — the sync actually ran, succeeded, and the
-  destination isn't silently full.
+- **Off-site freshness & capacity** — every scheduled rclone sync job actually
+  ran, succeeded, and is recent (a job that never ran is RED, not invisible);
+  the destination isn't silently full.
 - **Disk health** — SMART status on the hypervisors.
 - **Suppression hygiene** — accepted-risk entries are first-class and fail loud:
   expired or dead suppressions become findings themselves, never silent.

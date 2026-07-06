@@ -47,9 +47,13 @@ public static class AuditRunner
         var trueNasTask = config.TrueNas is { } tn
             ? Track("truenas", tn.Alias, new TrueNasProvider(ssh).GetAsync(new TrueNasConfig(tn.Alias, tn.ExcludeDatasets)))
             : Task.FromResult<(string, TrueNasProvider.TrueNasInventory?, string?)>(("", null, null));
+        var offsiteProvider = new PbsOffsiteProvider(ssh);
         var offsiteTask = config.PbsOffsite is { } off
-            ? Track("offsite", off.Alias, new PbsOffsiteProvider(ssh).GetAsync(new PbsOffsiteConfig(off.Alias, off.LogPath, off.RcloneRemote, off.TargetName)))
+            ? Track("offsite", off.Alias, offsiteProvider.GetAsync(new PbsOffsiteConfig(off.Alias, off.LogPath, off.RcloneRemote, off.TargetName)))
             : Task.FromResult<(string, PbsOffsiteProvider.OffsiteState?, string?)>(("", null, null));
+        var offsiteJobTasks = (config.OffsiteJobs ?? [])
+            .Select(o => Track("offsite", $"{o.Alias} ({o.Name})", offsiteProvider.GetJobAsync(o)))
+            .ToList();
         var maintenanceTask = config.PbsMaintenance is { } pm
             ? Track("pbs-maint", pm.ExecAlias, new PbsMaintenanceProvider(ssh).GetAsync(new PbsMaintenanceConfig(pm.ExecAlias, pm.ContainerId, pm.Datastore)))
             : Task.FromResult<(string, DatastoreMaintenance?, string?)>(("", null, null));
@@ -134,6 +138,16 @@ public static class AuditRunner
         }
         if (offError is not null) providerErrors.Add($"{offHost}: {offError}");
 
+        foreach (var (jobHost, jobState, jobError) in offsiteJobTasks.Select(t => t.Result))
+        {
+            if (jobState is not null)
+            {
+                if (jobState.LastSync is not null) artifacts.Add(jobState.LastSync);
+                if (jobState.Remote is not null) storage.Add(jobState.Remote);
+            }
+            if (jobError is not null) providerErrors.Add($"{jobHost}: {jobError}");
+        }
+
         var (pmHost, maintenance, pmError) = maintenanceTask.Result;
         if (pmError is not null) providerErrors.Add($"{pmHost}: {pmError}");
 
@@ -190,6 +204,12 @@ public static class AuditRunner
         {
             checks.Add(new PbsOffsiteCheck(new PbsOffsiteOptions(
                 offc.Alias, TimeSpan.FromHours(offc.MaxSyncAgeHours))));
+        }
+        if (config.OffsiteJobs is { Count: > 0 } jobs)
+        {
+            checks.Add(new OffsiteJobCheck(jobs
+                .Select(o => new OffsiteJobExpectation(o.Name, o.Alias, TimeSpan.FromHours(o.MaxSyncAgeHours)))
+                .ToList()));
         }
         if (maintenance is not null && config.PbsMaintenance is { } pmc)
         {

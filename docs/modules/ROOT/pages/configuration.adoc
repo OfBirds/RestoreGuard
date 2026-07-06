@@ -127,6 +127,40 @@ that is always in the backup, like a compose or config file. Per kind:
 | `haos` | `vmid` | Home Assistant OS full backups, read via the Proxmox qemu guest agent: agent enabled in the HA VM, root on its PVE host
 |===
 
+== `offsiteJobs` — rclone off-site syncs
+
+[source,json]
+----
+"offsiteJobs": [
+  { "name": "pbs to onedrive", "alias": "mypve",
+    "logPath": "/var/log/pbs-onedrive-sync.log",
+    "rcloneRemote": "onedrive:", "maxSyncAgeHours": 26 },
+  // log-only (no capacity probe — e.g. a backend without `rclone about`):
+  { "name": "nightly usb copy", "alias": "myotherhost",
+    "logPath": "/var/log/usb-sync.log" }
+]
+----
+
+One entry per scheduled sync job. The job's wrapper script must log
+`=== <yyyy-MM-dd HH:mm> ... sync start ===` when it starts and
+`=== sync finished rc=N ===` when it ends — a minimal wrapper:
+
+[source,sh]
+----
+echo "=== $(date '+%F %R') $(hostname) sync start ===" >> "$LOG"
+rclone sync /path remote:bucket >> "$LOG" 2>&1
+echo "=== sync finished rc=$? ===" >> "$LOG"
+----
+
+`rcloneRemote` is optional: set it to also watch the remote's occupancy
+(`rclone about`; skip it for backends that don't support about).
+
+*Host needs:* read access to the log; with `rcloneRemote`, the host's rclone
+remote must authenticate.
+
+NOTE: `pbsOffsite` is the older single-job flavor of this section and keeps
+working; new configs should prefer `offsiteJobs`.
+
 == `zfsReplications` — sanoid/syncoid & zfs send
 
 [source,json]
