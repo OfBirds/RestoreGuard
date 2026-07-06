@@ -1,0 +1,61 @@
+=== Wizard transcript: Everything skipped or answered no ===
+
+GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:
+  bash scripts/update-wizard-transcripts.sh
+(enforced by WizardTranscriptTests; user answers appear as «answer».)
+
+The user presses Enter / answers 'n' to every section: the wizard must
+refuse to write an empty config and say what to do instead.
+
+The simulated lab (see FakeLabSsh.cs): SSH works to nas/pve/truenas/
+hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
+repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the
+canary /etc/fstab restores, any other path restores 0 bytes; PVE has node
+'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on
+pve/hypervisor, no disks on nas, not installed on truenas.
+
+---------------------------------- dialogue ----------------------------------
+
+Welcome to RestoreGuard! No config found at restoreguard.json, so let's set one up.
+A few questions; everything is optional — press Enter to skip or accept the
+[default].
+
+RestoreGuard connects to your machines over SSH, read-only. Wherever a
+question asks for an "SSH destination", answer either:
+
+  - an alias from your ~/.ssh/config (recommended — it pins the right key):
+        Host nas
+            HostName 192.168.1.10
+            User root
+            IdentityFile ~/.ssh/id_ed25519
+    then answer:  nas
+  - or user@host, e.g.  root@192.168.1.10  (this uses your DEFAULT ssh key)
+
+Every destination you enter is tested immediately, so a typo or key problem
+shows up right here, not later.
+
+--- Docker hosts (checks compose config vs. what containers actually run) ---
+Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Docker): «Enter»
+
+--- Database dumps (a folder of nightly <name>_<yyyyMMdd>.sql.gz files) ---
+Do you have a dump folder like that to watch? [y/N]: «n»
+
+--- Proxmox VE (checks every VM/LXC has a fresh PBS or vzdump backup) ---
+Do you run Proxmox VE? [y/N]: «n»
+
+--- TrueNAS SCALE (pool health, snapshots, cloud-sync tasks) ---
+Do you run TrueNAS SCALE? [y/N]: «n»
+
+--- File-level backups (restic, borg, folders of archives, Home Assistant) ---
+Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «Enter»
+
+--- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
+SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «Enter»
+
+Nothing was configured, so there is nothing to audit yet.
+Re-run `restoreguard` to try again, or copy restoreguard.sample.json and edit it by hand.
+-------------------------------------------------------------------------------
+
+Wizard result: refused to write a config
+
+=== every SSH command the wizard ran (in order) ===

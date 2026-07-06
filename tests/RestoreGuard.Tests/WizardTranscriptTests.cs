@@ -1,0 +1,202 @@
+using System.Text;
+using RestoreGuard.Cli;
+
+namespace RestoreGuard.Tests;
+
+/// <summary>
+/// A TextReader that echoes every consumed answer into the transcript as «answer»
+/// (or «Enter» / «EOF»), so the generated dialogue reads like a real session:
+/// the prompt, then what the user typed, then the wizard's reaction.
+/// </summary>
+file sealed class EchoReader(IReadOnlyList<string> answers, StringWriter transcript) : TextReader
+{
+    private int _i;
+
+    public override string? ReadLine()
+    {
+        if (_i >= answers.Count)
+        {
+            transcript.WriteLine("«EOF»");
+            return null;
+        }
+        var answer = answers[_i++];
+        transcript.WriteLine(answer.Length == 0 ? "«Enter»" : $"«{answer}»");
+        return answer;
+    }
+}
+
+/// <summary>
+/// The wizard's dialogue as REVIEWABLE GOLDEN FILES: every scenario drives the real
+/// wizard against the simulated lab and the full transcript — prompts, answers,
+/// probe verdicts, the resulting config, and every SSH command the wizard ran — is
+/// committed under docs/wizard-transcripts/. Change a wizard question and this test
+/// fails until the transcripts are regenerated, so every dialogue change shows up
+/// as a reviewable file diff in the commit. Nobody replays the CLI by hand.
+///
+/// Regenerate:  bash scripts/update-wizard-transcripts.sh
+///        (or:  RG_UPDATE_TRANSCRIPTS=1 dotnet test --filter WizardTranscript)
+/// </summary>
+public class WizardTranscriptTests
+{
+    private sealed record Scenario(string Title, string[] About, string[] Answers);
+
+    private static readonly Dictionary<string, Scenario> Scenarios = new()
+    {
+        ["01-everything-correct"] = new(
+            "Everything answered correctly",
+            [
+                "Every section configured, every kind of file-backup source added, and",
+                "every live probe succeeding on the first try.",
+            ],
+            [
+                "nas", "",                                   // docker host + default docker path
+                "",                                          // docker: done
+                "y", "", "", "", "y",                        // dumps: yes, default host+path, pg_dumpall, prod-only
+                "y", "pve", "", "pbs-store",                 // pve: node default 'pve', storages
+                "",                                          // pve: done
+                "y", "truenas", "tank/private", "",          // truenas + one excluded dataset, done
+                "r", "nas", "/mnt/restic-repo", "", "/etc/fstab", "", "",  // restic + canary
+                "b", "nas", "/backups/borg", "", "/etc/fstab", "", "",     // borg + canary
+                "d", "nas", "/var/backups/db-prod", "", "",  // dir
+                "k", "nas", "", "",                          // kopia
+                "s", "nas", "", "", "",                      // snapper (default config 'root')
+                "h", "pve", "9000", "", "",                  // home assistant
+                "",                                          // file backups: done
+                "hypervisor", "",                            // smart + done
+            ]),
+
+        ["02-wrong-answers-rejected"] = new(
+            "Wrong answers: every probe failing at least once",
+            [
+                "Each section gets a wrong answer first: the failure message, the",
+                "keep-anyway escape hatch, retries, and the Enter-skips-after-rejection",
+                "behavior are all on display.",
+            ],
+            [
+                "badhost", "n", "nas", "",                   // ssh fails -> don't keep -> retry ok + docker path
+                "",                                          // docker: done
+                "y", "", "/nonexistent", "n", "",            // dumps: bad path -> don't keep -> Enter skips
+                "y", "pve", "wrongnode", "n", "pve",         // pve: wrong node name -> retry
+                "bogus-storage", "n", "pbs-store",           // pve: unreadable storage -> retry
+                "",                                          // pve: done
+                "y", "truenas",
+                @"\management\system", "n", "",              // dataset: normalized, not found -> skip
+                "b", "nas", "/backups/borg",
+                "/root/.wrong-pass", "n", "",                // wrong passphrase -> don't keep -> source cancelled
+                "r", "nas", "/mnt/restic-repo", "",
+                "/nope.conf", "n", "",                       // canary restores 0 bytes -> don't keep -> skip canary
+                "", "",                                      // restic source still added: name, hours
+                "x",                                         // unknown file-backup kind
+                "",                                          // file backups: done
+                "truenas", "n",                              // smart: smartmontools missing -> don't add
+                "nas", "n",                                  // smart: no physical disks -> don't add
+                "hypervisor", "",                            // smart: fine + done
+            ]),
+
+        ["03-everything-skipped"] = new(
+            "Everything skipped or answered no",
+            [
+                "The user presses Enter / answers 'n' to every section: the wizard must",
+                "refuse to write an empty config and say what to do instead.",
+            ],
+            [
+                "",                                          // docker: skip
+                "n",                                         // dumps: no
+                "n",                                         // pve: no
+                "n",                                         // truenas: no
+                "",                                          // file backups: skip
+                "",                                          // smart: skip
+            ]),
+    };
+
+    public static TheoryData<string> Names => [.. Scenarios.Keys];
+
+    [Theory]
+    [MemberData(nameof(Names))]
+    public async Task Transcript_MatchesCommittedGoldenFile(string name)
+    {
+        var generated = await GenerateAsync(name, Scenarios[name]);
+        var path = Path.Combine(RepoRoot(), "docs", "wizard-transcripts", $"{name}.txt");
+
+        if (Environment.GetEnvironmentVariable("RG_UPDATE_TRANSCRIPTS") == "1")
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, generated);
+            return;
+        }
+
+        Assert.True(File.Exists(path),
+            $"Missing transcript {path} — regenerate with: bash scripts/update-wizard-transcripts.sh");
+        Assert.Equal(File.ReadAllText(path).ReplaceLineEndings("\n"), generated);
+    }
+
+    private static async Task<string> GenerateAsync(string name, Scenario scenario)
+    {
+        var dir = Directory.CreateTempSubdirectory("rg-transcript");
+        try
+        {
+            var configPath = Path.Combine(dir.FullName, "restoreguard.json");
+            var ssh = new FakeLabSsh();
+            var dialogue = new StringWriter();
+            var ok = await InteractiveMode.RunWizardAsync(configPath, ssh,
+                new WizardIO(new EchoReader(scenario.Answers, dialogue), dialogue));
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"=== Wizard transcript: {scenario.Title} ===");
+            sb.AppendLine();
+            sb.AppendLine("GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:");
+            sb.AppendLine("  bash scripts/update-wizard-transcripts.sh");
+            sb.AppendLine("(enforced by WizardTranscriptTests; user answers appear as «answer».)");
+            sb.AppendLine();
+            foreach (var line in scenario.About)
+                sb.AppendLine(line);
+            sb.AppendLine();
+            sb.AppendLine("The simulated lab (see FakeLabSsh.cs): SSH works to nas/pve/truenas/");
+            sb.AppendLine("hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic");
+            sb.AppendLine("repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the");
+            sb.AppendLine("canary /etc/fstab restores, any other path restores 0 bytes; PVE has node");
+            sb.AppendLine("'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on");
+            sb.AppendLine("pve/hypervisor, no disks on nas, not installed on truenas.");
+            sb.AppendLine();
+            sb.AppendLine("---------------------------------- dialogue ----------------------------------");
+            sb.AppendLine(Sanitize(dialogue.ToString(), dir.FullName).TrimEnd('\n'));
+            sb.AppendLine("-------------------------------------------------------------------------------");
+            sb.AppendLine();
+
+            sb.AppendLine($"Wizard result: {(ok ? "config written" : "refused to write a config")}");
+            if (File.Exists(configPath))
+            {
+                sb.AppendLine();
+                sb.AppendLine("=== resulting restoreguard.json ===");
+                sb.AppendLine(File.ReadAllText(configPath).ReplaceLineEndings("\n").TrimEnd('\n'));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("=== every SSH command the wizard ran (in order) ===");
+            foreach (var ((host, command), i) in ssh.Calls.Select((c, i) => (c, i)))
+                sb.AppendLine($"{i + 1,3}. [{host}] {command}");
+
+            return sb.ToString().ReplaceLineEndings("\n");
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>Strips the temp directory out of the dialogue so transcripts are
+    /// identical across machines and operating systems.</summary>
+    private static string Sanitize(string text, string tempDir) => text
+        .Replace(tempDir + Path.DirectorySeparatorChar, "")
+        .Replace(tempDir, ".")
+        .ReplaceLineEndings("\n");
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "RestoreGuard.slnx")))
+            dir = dir.Parent;
+        return dir?.FullName
+            ?? throw new InvalidOperationException("Could not locate the repo root (RestoreGuard.slnx).");
+    }
+}

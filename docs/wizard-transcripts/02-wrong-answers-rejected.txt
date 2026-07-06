@@ -1,0 +1,201 @@
+=== Wizard transcript: Wrong answers: every probe failing at least once ===
+
+GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:
+  bash scripts/update-wizard-transcripts.sh
+(enforced by WizardTranscriptTests; user answers appear as «answer».)
+
+Each section gets a wrong answer first: the failure message, the
+keep-anyway escape hatch, retries, and the Enter-skips-after-rejection
+behavior are all on display.
+
+The simulated lab (see FakeLabSsh.cs): SSH works to nas/pve/truenas/
+hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
+repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the
+canary /etc/fstab restores, any other path restores 0 bytes; PVE has node
+'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on
+pve/hypervisor, no disks on nas, not installed on truenas.
+
+---------------------------------- dialogue ----------------------------------
+
+Welcome to RestoreGuard! No config found at restoreguard.json, so let's set one up.
+A few questions; everything is optional — press Enter to skip or accept the
+[default].
+
+RestoreGuard connects to your machines over SSH, read-only. Wherever a
+question asks for an "SSH destination", answer either:
+
+  - an alias from your ~/.ssh/config (recommended — it pins the right key):
+        Host nas
+            HostName 192.168.1.10
+            User root
+            IdentityFile ~/.ssh/id_ed25519
+    then answer:  nas
+  - or user@host, e.g.  root@192.168.1.10  (this uses your DEFAULT ssh key)
+
+Every destination you enter is tested immediately, so a typo or key problem
+shows up right here, not later.
+
+--- Docker hosts (checks compose config vs. what containers actually run) ---
+Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Docker): «badhost»
+  testing  ssh badhost 'echo ok'  ... FAILED
+    badhost: Permission denied (publickey,password).
+    Likely cause: the wrong key was offered. user@host uses your DEFAULT
+    ssh key — if this box needs a different key, answer with an
+    ~/.ssh/config alias whose block sets IdentityFile for it.
+  Keep this destination anyway? [y/N]: «n»
+Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Docker): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  path to docker on that host (Enter if plain `docker` works there) [docker]: «Enter»
+Docker host #2 SSH destination (e.g. nas or root@192.168.1.10; Enter = done): «Enter»
+
+--- Database dumps (a folder of nightly <name>_<yyyyMMdd>.sql.gz files) ---
+Do you have a dump folder like that to watch? [y/N]: «y»
+  SSH destination of the machine holding the dumps (e.g. nas or root@192.168.1.10; Enter = skip) [nas]: «Enter»
+  testing  ssh nas 'echo ok'  ... OK
+  folder with the dump files [/var/backups/db-prod]: «/nonexistent»
+  checking ... PROBLEM — folder not found on the host — check the path
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  folder with the dump files: «Enter»
+  Skipping database dumps for now.
+
+--- Proxmox VE (checks every VM/LXC has a fresh PBS or vzdump backup) ---
+Do you run Proxmox VE? [y/N]: «y»
+PVE node #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  the node's name in the Proxmox UI (top of the left sidebar) [pve]: «wrongnode»
+  checking ... PROBLEM — no node with that name — check the Proxmox UI sidebar
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  the node's name in the Proxmox UI (top of the left sidebar): «pve»
+  checking ... OK — node found
+  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «bogus-storage»
+  checking ... PROBLEM — storage 'bogus-storage' not readable on node 'pve' — check the name under Datacenter > Storage
+  Keep this value anyway? [y/N]: «n»
+  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «pbs-store»
+  checking ... OK — all storages readable
+PVE node #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
+
+--- TrueNAS SCALE (pool health, snapshots, cloud-sync tasks) ---
+Do you run TrueNAS SCALE? [y/N]: «y»
+  TrueNAS SSH destination (e.g. truenas or admin@192.168.1.20; Enter = skip): «truenas»
+  testing  ssh truenas 'echo ok'  ... OK
+  dataset to exclude #1, as pool/dataset (e.g. tank/private; Enter = none): «\management\system»
+    (normalized to: management/system)
+  checking ... PROBLEM — no DATASET with that exact path (format: pool/dataset, forward slashes). If this is a folder inside a dataset: no exclusion needed — RestoreGuard only reads dataset metadata (sizes, snapshots), never file contents
+  Keep this value anyway? [y/N]: «n»
+  dataset to exclude #1, as pool/dataset (e.g. tank/private; Enter = none): «Enter»
+
+--- File-level backups (restic, borg, folders of archives, Home Assistant) ---
+Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «b»
+  SSH destination of the machine that can open the borg repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  borg repository (a path like /mnt/nas/borg-repo; restic also takes s3:/sftp: URLs): «/backups/borg»
+  file on that host holding the repo passphrase [/root/.borg-pass]: «/root/.wrong-pass»
+  checking ... PROBLEM — could not open the repo with that file — check the repo path and the passphrase file
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  file on that host holding the repo passphrase: «Enter»
+Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «r»
+  SSH destination of the machine that can open the restic repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  restic repository (a path like /mnt/nas/restic-repo; restic also takes s3:/sftp: URLs): «/mnt/restic-repo»
+  file on that host holding the repo password [/root/.restic-pass]: «Enter»
+  checking ... OK — repo opens
+  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «/nope.conf»
+  checking ... PROBLEM — restored 0 bytes — Fatal: no matching entries found
+  Keep this value anyway? [y/N]: «n»
+  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «Enter»
+  a name for this source [restic nas /mnt/restic-repo]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «x»
+  r = restic, b = borg, k = kopia, s = btrfs snapper, d = folder of archives, h = Home Assistant, Enter = done.
+Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «Enter»
+
+--- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
+SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «truenas»
+  testing  ssh truenas 'echo ok'  ... OK
+  checking for smartctl and physical disks ... smartmontools is not installed there (apt install smartmontools).
+  Add it anyway (you'll install the tool later)? [y/N]: «n»
+SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  checking for smartctl and physical disks ... no physical disks visible — this looks like a VM/container.
+  SMART data lives on the machine that owns the disks (the hypervisor/bare metal).
+  Add it anyway? [y/N]: «n»
+SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «hypervisor»
+  testing  ssh hypervisor 'echo ok'  ... OK
+  checking for smartctl and physical disks ... OK
+SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
+
+Configured: 1 Docker host(s), 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), SMART on 1 host(s).
+Wrote restoreguard.json (+ suppressions.json for known exceptions later).
+
+More to add later? Off-site sync checks and PBS GC/verify hygiene are
+documented with examples in restoreguard.sample.json.
+-------------------------------------------------------------------------------
+
+Wizard result: config written
+
+=== resulting restoreguard.json ===
+{
+  "dockerHosts": [
+    {
+      "alias": "nas",
+      "dockerPath": "docker"
+    }
+  ],
+  "pveNodes": [
+    {
+      "alias": "pve",
+      "node": "pve",
+      "backupStorages": [
+        "pbs-store"
+      ]
+    }
+  ],
+  "pbsMaxSnapshotAgeHours": 26,
+  "trueNas": {
+    "alias": "truenas",
+    "excludeDatasets": [],
+    "maxSnapshotAgeHours": 26,
+    "maxSyncAgeHours": 26
+  },
+  "smartHosts": [
+    "hypervisor"
+  ],
+  "fileBackups": [
+    {
+      "name": "restic nas /mnt/restic-repo",
+      "kind": "restic",
+      "alias": "nas",
+      "repo": "/mnt/restic-repo",
+      "passwordFile": "/root/.restic-pass",
+      "maxAgeHours": 26
+    }
+  ],
+  "suppressionsFile": "suppressions.json"
+}
+
+=== every SSH command the wizard ran (in order) ===
+  1. [badhost] echo ok
+  2. [nas] echo ok
+  3. [nas] echo ok
+  4. [nas] find '/nonexistent' -maxdepth 1 -name '*.sql.gz' 2>/dev/null | wc -l; [ -d '/nonexistent' ]
+  5. [pve] echo ok
+  6. [pve] pvesh get /nodes/'wrongnode'/status --output-format json > /dev/null
+  7. [pve] pvesh get /nodes/'pve'/status --output-format json > /dev/null
+  8. [pve] pvesh get /nodes/'pve'/storage/'bogus-storage'/content --output-format json > /dev/null
+  9. [pve] pvesh get /nodes/'pve'/storage/'pbs-store'/content --output-format json > /dev/null
+ 10. [truenas] echo ok
+ 11. [truenas] midclt call pool.dataset.query '[["id","=","management/system"]]' '{"select":["id"]}'
+ 12. [nas] echo ok
+ 13. [nas] BORG_PASSCOMMAND='cat /root/.wrong-pass' borg list --short '/backups/borg' > /dev/null
+ 14. [nas] echo ok
+ 15. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
+ 16. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/nope.conf' | wc -c
+ 17. [truenas] echo ok
+ 18. [truenas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 19. [nas] echo ok
+ 20. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 21. [hypervisor] echo ok
+ 22. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks

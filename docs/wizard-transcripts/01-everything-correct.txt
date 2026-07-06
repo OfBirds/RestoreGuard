@@ -1,0 +1,251 @@
+=== Wizard transcript: Everything answered correctly ===
+
+GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:
+  bash scripts/update-wizard-transcripts.sh
+(enforced by WizardTranscriptTests; user answers appear as «answer».)
+
+Every section configured, every kind of file-backup source added, and
+every live probe succeeding on the first try.
+
+The simulated lab (see FakeLabSsh.cs): SSH works to nas/pve/truenas/
+hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
+repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the
+canary /etc/fstab restores, any other path restores 0 bytes; PVE has node
+'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on
+pve/hypervisor, no disks on nas, not installed on truenas.
+
+---------------------------------- dialogue ----------------------------------
+
+Welcome to RestoreGuard! No config found at restoreguard.json, so let's set one up.
+A few questions; everything is optional — press Enter to skip or accept the
+[default].
+
+RestoreGuard connects to your machines over SSH, read-only. Wherever a
+question asks for an "SSH destination", answer either:
+
+  - an alias from your ~/.ssh/config (recommended — it pins the right key):
+        Host nas
+            HostName 192.168.1.10
+            User root
+            IdentityFile ~/.ssh/id_ed25519
+    then answer:  nas
+  - or user@host, e.g.  root@192.168.1.10  (this uses your DEFAULT ssh key)
+
+Every destination you enter is tested immediately, so a typo or key problem
+shows up right here, not later.
+
+--- Docker hosts (checks compose config vs. what containers actually run) ---
+Docker host #1 SSH destination (e.g. nas or root@192.168.1.10; Enter = skip Docker): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  path to docker on that host (Enter if plain `docker` works there) [docker]: «Enter»
+Docker host #2 SSH destination (e.g. nas or root@192.168.1.10; Enter = done): «Enter»
+
+--- Database dumps (a folder of nightly <name>_<yyyyMMdd>.sql.gz files) ---
+Do you have a dump folder like that to watch? [y/N]: «y»
+  SSH destination of the machine holding the dumps (e.g. nas or root@192.168.1.10; Enter = skip) [nas]: «Enter»
+  testing  ssh nas 'echo ok'  ... OK
+  folder with the dump files [/var/backups/db-prod]: «Enter»
+  checking ... OK — folder exists, 12 dump file(s) found
+  which tool writes these dumps (pg_dumpall or mysqldump) [pg_dumpall]: «Enter»
+  does this job dump ONLY containers named 'prod' (skipping 'staging')? [y/N]: «y»
+
+--- Proxmox VE (checks every VM/LXC has a fresh PBS or vzdump backup) ---
+Do you run Proxmox VE? [y/N]: «y»
+PVE node #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  the node's name in the Proxmox UI (top of the left sidebar) [pve]: «Enter»
+  checking ... OK — node found
+  backup storage names to read, comma-separated (as listed under Datacenter > Storage; e.g. pbs-store, local): «pbs-store»
+  checking ... OK — all storages readable
+PVE node #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
+
+--- TrueNAS SCALE (pool health, snapshots, cloud-sync tasks) ---
+Do you run TrueNAS SCALE? [y/N]: «y»
+  TrueNAS SSH destination (e.g. truenas or admin@192.168.1.20; Enter = skip): «truenas»
+  testing  ssh truenas 'echo ok'  ... OK
+  dataset to exclude #1, as pool/dataset (e.g. tank/private; Enter = none): «tank/private»
+  checking ... OK — found — it will be excluded before anything reads it
+  dataset to exclude #2, as pool/dataset (e.g. tank/private; Enter = done): «Enter»
+
+--- File-level backups (restic, borg, folders of archives, Home Assistant) ---
+Add file-backup source #1?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = skip: «r»
+  SSH destination of the machine that can open the restic repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  restic repository (a path like /mnt/nas/restic-repo; restic also takes s3:/sftp: URLs): «/mnt/restic-repo»
+  file on that host holding the repo password [/root/.restic-pass]: «Enter»
+  checking ... OK — repo opens
+  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «/etc/fstab»
+  checking ... OK — restored 512 bytes from the latest snapshot
+  a name for this source [restic nas /mnt/restic-repo]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #2?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «b»
+  SSH destination of the machine that can open the borg repo (e.g. nas or root@192.168.1.10; Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  borg repository (a path like /mnt/nas/borg-repo; restic also takes s3:/sftp: URLs): «/backups/borg»
+  file on that host holding the repo passphrase [/root/.borg-pass]: «Enter»
+  checking ... OK — repo opens
+  restore-canary file (optional): a small file that is ALWAYS in this backup, e.g. /etc/fstab — every audit will restore it from the latest snapshot as proof the repo restores (Enter = skip): «/etc/fstab»
+  checking ... OK — restored 256 bytes from the latest snapshot
+  a name for this source [borg nas /backups/borg]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #3?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «d»
+  SSH destination of the machine holding the archive folder (Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  folder containing the archive files: «/var/backups/db-prod»
+  checking ... OK — folder exists, 12 file(s)
+  a name for this source [archives nas /var/backups/db-prod]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #4?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «k»
+  SSH destination of the machine where kopia is connected to its repo (Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  checking kopia repository status ... OK
+  a name for this source [kopia nas]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #5?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «s»
+  SSH destination of the machine with the btrfs filesystem (Enter = cancel): «nas»
+  testing  ssh nas 'echo ok'  ... OK
+  snapper config name (see `snapper list-configs` on that host) [root]: «Enter»
+  checking ... OK — config found
+  a name for this source [snapper nas root]: «Enter»
+  alert when the newest backup is older than (hours) [26]: «Enter»
+Add file-backup source #6?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «h»
+  SSH destination of the Proxmox host running the Home Assistant VM (Enter = cancel): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  the HA VM's id in Proxmox: «9000»
+  checking ... OK — qemu guest agent responds
+  a name for this source [home-assistant full backup]: «Enter»
+  alert when the newest backup is older than (hours) [192]: «Enter»
+Add file-backup source #7?  r = restic  b = borg  k = kopia  s = btrfs snapper  d = folder of archive files  h = Home Assistant  Enter = done: «Enter»
+
+--- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
+SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «hypervisor»
+  testing  ssh hypervisor 'echo ok'  ... OK
+  checking for smartctl and physical disks ... OK
+SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
+
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 6 file-backup source(s) (2 with restore canary), SMART on 1 host(s).
+Wrote restoreguard.json (+ suppressions.json for known exceptions later).
+
+More to add later? Off-site sync checks and PBS GC/verify hygiene are
+documented with examples in restoreguard.sample.json.
+-------------------------------------------------------------------------------
+
+Wizard result: config written
+
+=== resulting restoreguard.json ===
+{
+  "dockerHosts": [
+    {
+      "alias": "nas",
+      "dockerPath": "docker"
+    }
+  ],
+  "logicalDbBackups": [
+    {
+      "host": "nas",
+      "path": "/var/backups/db-prod",
+      "coversHosts": [
+        "nas"
+      ],
+      "maxDumpAgeHours": 26,
+      "method": "pg_dumpall",
+      "requireProdNaming": true
+    }
+  ],
+  "pveNodes": [
+    {
+      "alias": "pve",
+      "node": "pve",
+      "backupStorages": [
+        "pbs-store"
+      ]
+    }
+  ],
+  "pbsMaxSnapshotAgeHours": 26,
+  "trueNas": {
+    "alias": "truenas",
+    "excludeDatasets": [
+      "tank/private"
+    ],
+    "maxSnapshotAgeHours": 26,
+    "maxSyncAgeHours": 26
+  },
+  "smartHosts": [
+    "hypervisor"
+  ],
+  "fileBackups": [
+    {
+      "name": "restic nas /mnt/restic-repo",
+      "kind": "restic",
+      "alias": "nas",
+      "repo": "/mnt/restic-repo",
+      "passwordFile": "/root/.restic-pass",
+      "maxAgeHours": 26,
+      "canaryPath": "/etc/fstab"
+    },
+    {
+      "name": "borg nas /backups/borg",
+      "kind": "borg",
+      "alias": "nas",
+      "repo": "/backups/borg",
+      "passwordFile": "/root/.borg-pass",
+      "maxAgeHours": 26,
+      "canaryPath": "/etc/fstab"
+    },
+    {
+      "name": "archives nas /var/backups/db-prod",
+      "kind": "dir",
+      "alias": "nas",
+      "path": "/var/backups/db-prod",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "kopia nas",
+      "kind": "kopia",
+      "alias": "nas",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "snapper nas root",
+      "kind": "snapper",
+      "alias": "nas",
+      "snapperConfig": "root",
+      "maxAgeHours": 26
+    },
+    {
+      "name": "home-assistant full backup",
+      "kind": "haos",
+      "alias": "pve",
+      "vmid": 9000,
+      "maxAgeHours": 192
+    }
+  ],
+  "suppressionsFile": "suppressions.json"
+}
+
+=== every SSH command the wizard ran (in order) ===
+  1. [nas] echo ok
+  2. [nas] echo ok
+  3. [nas] find '/var/backups/db-prod' -maxdepth 1 -name '*.sql.gz' 2>/dev/null | wc -l; [ -d '/var/backups/db-prod' ]
+  4. [pve] echo ok
+  5. [pve] pvesh get /nodes/'pve'/status --output-format json > /dev/null
+  6. [pve] pvesh get /nodes/'pve'/storage/'pbs-store'/content --output-format json > /dev/null
+  7. [truenas] echo ok
+  8. [truenas] midclt call pool.dataset.query '[["id","=","tank/private"]]' '{"select":["id"]}'
+  9. [nas] echo ok
+ 10. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' cat config > /dev/null
+ 11. [nas] restic -r '/mnt/restic-repo' --password-file '/root/.restic-pass' --no-lock dump latest '/etc/fstab' | wc -c
+ 12. [nas] echo ok
+ 13. [nas] BORG_PASSCOMMAND='cat /root/.borg-pass' borg list --short '/backups/borg' > /dev/null
+ 14. [nas] BORG_PASSCOMMAND='cat /root/.borg-pass' borg list --json --last 1 '/backups/borg'
+ 15. [nas] BORG_PASSCOMMAND='cat /root/.borg-pass' borg extract --stdout '/backups/borg::nas-2026-07-06' 'etc/fstab' | wc -c
+ 16. [nas] echo ok
+ 17. [nas] find '/var/backups/db-prod' -maxdepth 1 -type f 2>/dev/null | wc -l; [ -d '/var/backups/db-prod' ]
+ 18. [nas] echo ok
+ 19. [nas] kopia repository status > /dev/null
+ 20. [nas] echo ok
+ 21. [nas] snapper --jsonout -c 'root' list > /dev/null
+ 22. [pve] echo ok
+ 23. [pve] qm guest cmd 9000 ping
+ 24. [hypervisor] echo ok
+ 25. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
