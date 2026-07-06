@@ -1,0 +1,29 @@
+# Continuous integration: build + test on every push and pull request.
+# The release pipeline (release.yml) also runs tests, but only on tags — this
+# gives the same safety net for day-to-day work between releases.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore RestoreGuard.slnx
+
+      - name: Build
+        run: dotnet build RestoreGuard.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test RestoreGuard.slnx -c Release --no-build
