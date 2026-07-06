@@ -52,6 +52,18 @@ every push and pull request.
   output shape.
 - A change that alters findings should update or add golden expectations, not
   loosen assertions.
+- **Wizard changes:** the wizard's dialogue is golden-filed in
+  `docs/wizard-transcripts/` — `WizardTranscriptTests` fails while they're stale.
+  After any wizard change run `bash scripts/update-wizard-transcripts.sh`,
+  review the transcript diff (that diff IS the dialogue review), and commit it.
+
+## Adding a feature? Cover every surface
+
+A check isn't done when it works — the wizard question (live-probed), doctor
+preflight, config validation, docs pages, BOTH `restoreguard.sample.json`
+copies (root + `docs/modules/ROOT/examples/`), README, and CHANGELOG move
+together. The full checklist lives in
+[.internal/skills/surface-coverage/SKILL.md](.internal/skills/surface-coverage/SKILL.md).
 
 ## Submitting changes
 

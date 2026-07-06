@@ -100,10 +100,12 @@ have. You need:
 | `dockerHosts` | `docker inspect`, `docker compose config` | Docker daemon access (root or `docker` group); compose plugin ≥ 2.17; read access to compose project dirs + env files |
 | `logicalDbBackup` | `find` over the dump dir | read access to the dump directory |
 | `pveNodes` | `pvesh get` (guests, storage, backup content — PBS *and* vzdump dir storages) | root on the PVE node (pvesh) |
-| `fileBackups` |  per kind: `restic snapshots`, `borg list`, `kopia snapshot list`, `snapper list`, `find` over an archive dir, or `qm guest exec … ha backups` | restic/borg: repo + password/passphrase file readable on the host; dir: readable path; haos: qemu guest agent enabled in the HA VM, root on its PVE host |
-| `trueNas` | `midclt call` (pools, datasets, snapshots, cloud-sync) | TrueNAS admin user |
-| `pbsOffsite` | `tail` the sync log, `rclone about` | read the log; the host's rclone remote must authenticate |
-| `pbsMaintenance` | `pct exec <CT> -- proxmox-backup-manager` | root on the PVE host that runs the PBS container |
+| `fileBackups` |  per kind: `restic snapshots`, `borg list`, `kopia snapshot list`, `snapper list`, `find` over an archive dir, or `qm guest exec … ha backups`; with `canaryPath` also a `dump`/`extract --stdout … \| wc -c` restore drill | restic/borg: repo + password/passphrase file readable on the host; dir: readable path; haos: qemu guest agent enabled in the HA VM, root on its PVE host |
+| `zfsReplications` | `zfs list -H -p -t snapshot` on source (and replica) | `zfs` on PATH; read access (no `zfs send/recv` is ever run) |
+| `offsiteJobs` | `tail` the job's log; optional `rclone about` | read the log; with `rcloneRemote`, the host's remote must authenticate |
+| `sqliteBackupDirs` | recursive `find` for `*-wal`/`*-shm` | read access to the backup folder |
+| `pbsOffsite` *(legacy — prefer `offsiteJobs`)* | `tail` the sync log, `rclone about` | read the log; the host's rclone remote must authenticate |
+| `pbsMaintenance` | `pct exec <CT> -- proxmox-backup-manager` (GC, verify + sync jobs, datastore list); `ls` of `host/<id>` snapshot dirs for `hostBackups` | root on the PVE host that runs the PBS container |
 | `smartHosts` | `smartctl -H` | root (raw device access); smartmontools installed |
 
 Targets are assumed Linux-ish with standard tools (GNU `find`, `awk`, `tail`).
