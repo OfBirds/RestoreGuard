@@ -1,5 +1,10 @@
 # RestoreGuard — backup-integrity & restore-drift auditor
 
+[![CI](https://github.com/OfBirds/RestoreGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/OfBirds/RestoreGuard/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/RestoreGuard.svg?logo=nuget)](https://www.nuget.org/packages/RestoreGuard)
+[![Release](https://img.shields.io/github/v/release/OfBirds/RestoreGuard?logo=github)](https://github.com/OfBirds/RestoreGuard/releases)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+
 > **Greylag Goose** in the [ofbirds](https://ofbirds.org) flock — the watch-bird:
 > the sacred geese of Juno whose alarm saved Rome from the night attack on the
 > Capitol. First app in the **homelab tooling** category (RestoreGuard stays the

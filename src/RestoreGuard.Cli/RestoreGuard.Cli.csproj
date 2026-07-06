@@ -27,7 +27,16 @@
     <Authors>OfBirds</Authors>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/OfBirds/RestoreGuard</RepositoryUrl>
+    <PackageProjectUrl>https://ofbirds.org/goose</PackageProjectUrl>
     <PackageTags>backup;homelab;proxmox;docker;truenas;restic;audit</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
+
+  <!-- Files surfaced on the NuGet.org listing (packed, not compiled in). -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\img\goose_fav_light.png" Pack="true" PackagePath="\icon.png" />
+  </ItemGroup>
 
 </Project>

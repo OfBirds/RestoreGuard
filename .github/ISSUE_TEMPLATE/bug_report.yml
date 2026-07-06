@@ -1,0 +1,41 @@
+name: Bug report
+description: Something RestoreGuard reported wrong, crashed on, or handled unexpectedly.
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you expect, and what did RestoreGuard do instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: Command run, and the relevant config section (sanitized — remove hostnames/paths you don't want public).
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: RestoreGuard version
+      description: Output of `restoreguard help` first line, or the release/tag.
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How installed
+      description: dotnet tool / standalone binary / .deb / Docker
+    validations:
+      required: false
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: Audit output or error. Use `--json` if it helps. Sanitize as needed.
+      render: shell
+    validations:
+      required: false

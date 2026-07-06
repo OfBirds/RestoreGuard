@@ -1,0 +1,25 @@
+name: Feature request
+description: A new check, provider, or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem / drift you want caught
+      description: What backup-integrity or restore-drift failure mode is going undetected today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like RestoreGuard to do
+      description: The check/behavior, and how you'd expect it surfaced (RED/YELLOW/GREEN, JSON field, etc.).
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Relevant stack
+      description: e.g. Proxmox + PBS, TrueNAS SCALE, restic, Docker compose — helps scope the probe.
+    validations:
+      required: false
