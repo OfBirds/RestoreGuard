@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write # NuGet.org trusted publishing (OIDC) — see the NuGet push step
 
 jobs:
   docker:
@@ -76,11 +77,17 @@ jobs:
       - name: Pack dotnet tool
         run: dotnet pack src/RestoreGuard.Cli -c Release -o dist
 
-      - name: Push to NuGet (when NUGET_API_KEY is configured)
-        if: ${{ env.NUGET_API_KEY != '' }}
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: dotnet nuget push dist/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+      # NuGet.org trusted publishing (OIDC): no long-lived secret. The login
+      # action exchanges the workflow's short-lived OIDC token for a temporary
+      # API key, authorized by the trusted-publishing policy on nuget.org
+      # (owner 3fun, repo OfBirds/RestoreGuard, workflow release.yml).
+      - name: NuGet trusted-publishing login
+        uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: 3fun
+      - name: Push to NuGet
+        run: dotnet nuget push dist/*.nupkg --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
 
       # Plain `gh` instead of a third-party action — survives strict org
       # Actions allowlists (github-owned + verified + docker/* only).
