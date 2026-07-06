@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-06
+
+### Added
+
+- Continuous-integration workflow (`ci.yml`): build + test on every push and
+  pull request.
+- Contributor scaffolding: `CONTRIBUTING.md`, `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, `.editorconfig`, and this changelog.
+
+### Changed
+
+- NuGet.org publishing now uses **trusted publishing (OIDC)** — a short-lived,
+  keyless token minted at release time instead of a stored API key. This is the
+  first release to actually reach NuGet.org (`dotnet tool install -g RestoreGuard`).
+- Release pipeline replaces an existing GitHub Release on re-tag instead of
+  failing.
+
 ## [0.1.10] - 2026-07-06
 
 First public snapshot of RestoreGuard (**Greylag Goose**) — a read-only
@@ -37,5 +54,6 @@ backup-integrity and restore-drift auditor for homelabs.
   SSH command, and graceful `Ctrl+C` cancellation that still emits a partial
   report.
 
-[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/OfBirds/RestoreGuard/releases/tag/v0.1.10

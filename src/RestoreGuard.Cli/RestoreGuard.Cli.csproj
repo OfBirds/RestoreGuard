@@ -22,7 +22,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>restoreguard</ToolCommandName>
     <PackageId>RestoreGuard</PackageId>
-    <Version>0.1.10</Version>
+    <Version>0.1.11</Version>
     <Description>Backup-integrity and restore-drift auditor for homelabs: cross-checks declared vs. live state over SSH (Docker, Proxmox/PBS, vzdump, TrueNAS, restic, and more) and reports RED/YELLOW/GREEN per service. Read-only.</Description>
     <Authors>OfBirds</Authors>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
