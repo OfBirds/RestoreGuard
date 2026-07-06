@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-07-06
+
+Six new checks, all live-verified against the development lab before release.
+
 ### Changed
 
 - Wizard dialogue hardening (from the full-dialogue review): the docker path is
@@ -116,7 +120,8 @@ backup-integrity and restore-drift auditor for homelabs.
   SSH command, and graceful `Ctrl+C` cancellation that still emits a partial
   report.
 
-[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/OfBirds/RestoreGuard/releases/tag/v0.1.10
