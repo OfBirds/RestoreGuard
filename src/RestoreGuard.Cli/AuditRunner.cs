@@ -55,7 +55,7 @@ public static class AuditRunner
             .Select(o => Track("offsite", $"{o.Alias} ({o.Name})", offsiteProvider.GetJobAsync(o)))
             .ToList();
         var maintenanceTask = config.PbsMaintenance is { } pm
-            ? Track("pbs-maint", pm.ExecAlias, new PbsMaintenanceProvider(ssh).GetAsync(new PbsMaintenanceConfig(pm.ExecAlias, pm.ContainerId, pm.Datastore)))
+            ? Track("pbs-maint", pm.ExecAlias, new PbsMaintenanceProvider(ssh).GetAsync(new PbsMaintenanceConfig(pm.ExecAlias, pm.ContainerId, pm.Datastore, pm.HostBackups)))
             : Task.FromResult<(string, DatastoreMaintenance?, string?)>(("", null, null));
         var smartProvider = new SmartProvider(ssh);
         var smartTasks = (config.SmartHosts ?? [])
@@ -225,7 +225,8 @@ public static class AuditRunner
         if (maintenance is not null && config.PbsMaintenance is { } pmc)
         {
             checks.Add(new PbsMaintenanceCheck(maintenance, new PbsMaintenanceOptions(
-                pmc.Host, TimeSpan.FromDays(pmc.MaxGcAgeDays), TimeSpan.FromHours(pmc.MaxVerifyAgeHours))));
+                pmc.Host, TimeSpan.FromDays(pmc.MaxGcAgeDays), TimeSpan.FromHours(pmc.MaxVerifyAgeHours),
+                TimeSpan.FromHours(pmc.MaxSyncJobAgeHours), TimeSpan.FromHours(pmc.MaxHostBackupAgeHours))));
         }
         if (config.FileBackups is { Count: > 0 } fbs)
         {

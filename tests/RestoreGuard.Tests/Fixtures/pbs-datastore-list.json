@@ -1,0 +1,1 @@
+[{"comment":"nvme datastore","gc-schedule":"daily","name":"main","path":"/mnt/datastore/main"},{"name":"scratch","path":"/mnt/datastore/scratch"}]

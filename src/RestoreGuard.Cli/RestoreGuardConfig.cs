@@ -170,4 +170,9 @@ public sealed record PbsMaintenanceCliConfig(
     string Datastore,
     string Host,
     double MaxGcAgeDays = 7,
-    double MaxVerifyAgeHours = 50);
+    double MaxVerifyAgeHours = 50,
+    double MaxSyncJobAgeHours = 26,
+    // proxmox-backup-client backup ids (usually hostnames) expected under host/
+    // in the datastore — bare-metal hosts backed up straight to PBS.
+    IReadOnlyList<string>? HostBackups = null,
+    double MaxHostBackupAgeHours = 26);

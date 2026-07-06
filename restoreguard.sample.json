@@ -130,7 +130,15 @@
     "maxGcAgeDays": 7,
     // Last completed verification must be OK and younger than this (daily
     // schedule + margin). A failed verification is RED - corrupted chunks.
-    "maxVerifyAgeHours": 50
+    "maxVerifyAgeHours": 50,
+    // PBS->PBS sync jobs are AUTO-DISCOVERED: when any exist, the last completed
+    // sync must have succeeded and be younger than this.
+    "maxSyncJobAgeHours": 26,
+    // Bare-metal hosts backed up with proxmox-backup-client: each backup id
+    // (usually the hostname, under host/ in the datastore) must have a fresh
+    // snapshot. Optional - omit if no host backs up straight to PBS.
+    "hostBackups": ["mydockerhost"],
+    "maxHostBackupAgeHours": 26
   },
 
   // SMART health of PHYSICAL disks — probe the machines that own the disks

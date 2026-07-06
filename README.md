@@ -37,7 +37,9 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
   contracts enforced.
 - **Image backups (Proxmox)** — every VM/LXC is covered by PBS or vzdump, backups
   are fresh, orphan backups flagged; PBS datastore GC ran recently, verify jobs
-  exist and the last verification completed, passed, and is fresh.
+  exist and the last verification completed, passed, and is fresh; PBS→PBS sync
+  jobs succeed and are fresh; bare-metal `proxmox-backup-client` hosts have
+  fresh host backups.
 - **File-level backup tools** — restic, borg, kopia, snapper (btrfs), Home
   Assistant native backups, or plain archive directories: snapshots exist, are
   fresh, and aren't suspiciously small.

@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **PBS sync jobs + proxmox-backup-client host backups** (rides on
+  `pbsMaintenance`): PBS→PBS sync jobs are auto-discovered — when any exist, the
+  last completed sync must succeed and be fresh (`pbs/sync-job-*`). Optional
+  `hostBackups` lists bare-metal `proxmox-backup-client` backup ids that must
+  have fresh snapshots under `host/` in the datastore
+  (`pbs/host-backup-missing`, `/host-backup-stale`).
 - **SQLite hot-copy detection** (`sqliteBackupDirs`): rsync/plain-copy backup
   folders of app data are scanned recursively for `-wal`/`-shm` files — those
   exist next to a database only while it is open, so inside a backup they prove

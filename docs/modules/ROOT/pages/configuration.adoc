@@ -248,7 +248,12 @@ authenticate non-interactively.
   "datastore": "main",
   "host": "pve",
   "maxGcAgeDays": 7,
-  "maxVerifyAgeHours": 50
+  "maxVerifyAgeHours": 50,
+  "maxSyncJobAgeHours": 26,
+  // bare-metal hosts backed up with proxmox-backup-client (backup ids under
+  // host/ in the datastore — usually the hostname):
+  "hostBackups": ["mydockerhost"],
+  "maxHostBackupAgeHours": 26
 }
 ----
 
@@ -257,6 +262,16 @@ recently, verify jobs exist, and the *last completed verification passed* and
 is fresh. A failed verification means corrupted chunks — that is a RED. Read by
 running `proxmox-backup-manager` inside the PBS container from its PVE host
 (`pct exec`), so no PBS API token is needed.
+
+Two more things ride on the same probe:
+
+* *PBS→PBS sync jobs* are auto-discovered (`sync-job list`) — when any exist,
+  the last completed sync must have succeeded and be fresh. Nothing to configure
+  beyond `maxSyncJobAgeHours`.
+* *`hostBackups`* (optional): bare-metal hosts backed up straight to PBS with
+  `proxmox-backup-client`. Each listed backup id must have a fresh snapshot
+  under `host/` in the datastore (found via the datastore's on-disk path —
+  still read-only).
 
 *Host needs:* root on the PVE host that runs the PBS container.
 

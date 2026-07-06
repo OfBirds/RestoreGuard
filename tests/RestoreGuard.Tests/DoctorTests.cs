@@ -13,7 +13,7 @@ public class DoctorTests
         PbsMaxSnapshotAgeHours: 26,
         TrueNas: new TrueNasCliConfig("truenas", []),
         PbsOffsite: new PbsOffsiteCliConfig("lab99", "/var/log/pbs-onedrive-sync.log", "onedrive:", "pbs-nvme"),
-        PbsMaintenance: new PbsMaintenanceCliConfig("lab99", 110, "main", "pve"),
+        PbsMaintenance: new PbsMaintenanceCliConfig("lab99", 110, "main", "pve", HostBackups: ["lab98"]),
         SmartHosts: ["lab99", "lab142"],
         FileBackups:
         [
@@ -43,9 +43,10 @@ public class DoctorTests
         var probes = Doctor.BuildProbes(FullConfig());
 
         // 2 docker + 1 dumps + 2 pve + 2 storage-content + 1 truenas + 1 legacy-offsite
-        // + 1 maintenance + 2 smart + 6 file-backup + 2 restore-canary
-        // + 3 zfs (source+target, source-only) + 2 offsite jobs + 1 sqlite dir
-        Assert.Equal(26, probes.Count);
+        // + 2 maintenance (version + datastore list for host backups) + 2 smart
+        // + 6 file-backup + 2 restore-canary + 3 zfs (source+target, source-only)
+        // + 2 offsite jobs + 1 sqlite dir
+        Assert.Equal(27, probes.Count);
         Assert.Equal(
             ["db-dumps", "docker", "file-backup", "offsite", "pbs-maintenance", "pbs-offsite", "pve", "restore-canary", "smart", "sqlite", "truenas", "zfs-replication"],
             probes.Select(p => p.Area).Distinct().Order(StringComparer.Ordinal).ToList());

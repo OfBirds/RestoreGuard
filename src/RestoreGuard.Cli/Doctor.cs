@@ -73,6 +73,13 @@ public static class Doctor
             probes.Add(new DoctorProbe(pm.ExecAlias, "pbs-maintenance",
                 $"pct exec {pm.ContainerId} -- proxmox-backup-manager version > /dev/null",
                 $"pct exec into CT{pm.ContainerId} (root on the PVE host)"));
+            if (pm.HostBackups is { Count: > 0 })
+            {
+                // Host backups are found via the datastore's on-disk path.
+                probes.Add(new DoctorProbe(pm.ExecAlias, "pbs-maintenance",
+                    $"pct exec {pm.ContainerId} -- proxmox-backup-manager datastore list --output-format json > /dev/null",
+                    $"datastore list readable (locating host backups in '{pm.Datastore}')"));
+            }
         }
 
         foreach (var h in config.SmartHosts ?? [])

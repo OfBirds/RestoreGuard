@@ -85,6 +85,11 @@ check and keeps working; new configs should prefer `offsiteJobs`.
 | `pbs/gc-stale` | YELLOW | GC hasn't run within `maxGcAgeDays`
 | `pbs/offsite-failed` | RED | the last off-site sync exited non-zero
 | `pbs/offsite-stale` | RED | no successful off-site sync within `maxSyncAgeHours`
+| `pbs/sync-job-never-ran` | YELLOW | PBS→PBS sync job(s) exist (auto-discovered) but no sync has ever completed
+| `pbs/sync-job-failed` | RED | the last completed PBS sync did not succeed — the second PBS is behind
+| `pbs/sync-job-stale` | RED | no successful PBS sync within `maxSyncJobAgeHours`
+| `pbs/host-backup-missing` | RED | a watched `proxmox-backup-client` host (`hostBackups`) has no host backups at all in the datastore
+| `pbs/host-backup-stale` | RED | the newest host backup of a watched host is older than `maxHostBackupAgeHours`
 |===
 
 == File-level backups (`fileBackups`)
