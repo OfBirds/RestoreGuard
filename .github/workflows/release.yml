@@ -50,11 +50,12 @@ jobs:
       - name: Publish all platforms
         run: |
           set -eu
-          VERSION="${GITHUB_REF_NAME}"
+          VERSION="${GITHUB_REF_NAME}"   # tag with leading v — for asset file names
+          VER="${GITHUB_REF_NAME#v}"     # tag without v — the package/assembly version
           mkdir -p dist
           for rid in linux-x64 linux-arm64 osx-x64 osx-arm64 win-x64; do
             dotnet publish src/RestoreGuard.Cli -c Release -r "$rid" --self-contained \
-              -p:PublishSingleFile=true -o "publish/$rid"
+              -p:PublishSingleFile=true -p:Version="$VER" -o "publish/$rid"
             if [ "$rid" = "win-x64" ]; then
               cp "publish/$rid/RestoreGuard.Cli.exe" "publish/$rid/restoreguard.exe"
               (cd "publish/$rid" && zip -q "../../dist/restoreguard-$VERSION-$rid.zip" restoreguard.exe)
@@ -75,7 +76,7 @@ jobs:
         run: (cd dist && sha256sum * > SHA256SUMS.txt)
 
       - name: Pack dotnet tool
-        run: dotnet pack src/RestoreGuard.Cli -c Release -o dist
+        run: dotnet pack src/RestoreGuard.Cli -c Release -o dist -p:Version="${GITHUB_REF_NAME#v}"
 
       # NuGet.org trusted publishing (OIDC): no long-lived secret. The login
       # action exchanges the workflow's short-lived OIDC token for a temporary

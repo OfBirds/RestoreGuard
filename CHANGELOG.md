@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-07-06
+
+### Added
+
+- NuGet.org listing now shows a readme, icon, and project URL.
+- README status badges (CI, NuGet, release, license).
+- Dependabot (`dependabot.yml`): weekly GitHub Actions + NuGet updates.
+- Issue forms (bug / feature) and a pull-request template.
+
+### Changed
+
+- Release version is now taken from the git tag (`-p:Version` in the release
+  pipeline) instead of a hardcoded csproj `<Version>`, so a published package can
+  no longer disagree with its tag. The csproj value is a local-dev default only.
+
 ## [0.1.11] - 2026-07-06
 
 ### Added
@@ -54,6 +69,7 @@ backup-integrity and restore-drift auditor for homelabs.
   SSH command, and graceful `Ctrl+C` cancellation that still emits a partial
   report.
 
-[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/OfBirds/RestoreGuard/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/OfBirds/RestoreGuard/releases/tag/v0.1.10
