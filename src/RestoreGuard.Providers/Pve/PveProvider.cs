@@ -36,7 +36,7 @@ public sealed class PveProvider(ISshProvider ssh)
                 : BackupTier.Vzdump;
             var content = await RunJsonAsync(
                 node.Alias, $"pvesh get /nodes/{node.Node}/storage/{name}/content --output-format json", ct);
-            snapshots.AddRange(PbsContentParser.Parse(content).Select(s => s with { Tier = tier }));
+            snapshots.AddRange(PbsContentParser.Parse(content).Select(s => s with { Tier = tier, Node = node.Node }));
         }
 
         return new NodeInventory(PveResourcesParser.Parse(resources), storages, snapshots);

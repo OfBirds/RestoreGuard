@@ -9,7 +9,10 @@ namespace RestoreGuard.Providers.FileBackups;
 /// "restic" (repo + password file), "borg" (repo + passphrase file),
 /// "kopia" (server-side connected repo — `kopia repository connect` once on the host),
 /// "dir" (a directory of archive files), "haos" (Home Assistant OS backups via
-/// the PVE qemu guest agent), "snapper" (btrfs snapshots by snapper config name).</summary>
+/// the PVE qemu guest agent), "snapper" (btrfs snapshots by snapper config name).
+/// CanaryPath (restic/borg only) opts into the restore canary: a small file that
+/// must be restorable from the LATEST snapshot — proof the repo actually restores,
+/// not just that snapshots exist.</summary>
 public sealed record FileBackupSource(
     string Name,
     string Kind,
@@ -19,7 +22,8 @@ public sealed record FileBackupSource(
     string? Path = null,
     int? Vmid = null,
     string? SnapperConfig = null,
-    double MaxAgeHours = 26);
+    double MaxAgeHours = 26,
+    string? CanaryPath = null);
 
 /// <summary>
 /// File-level backup discovery. Every adapter yields BackupTier.FileBackup artifacts
@@ -229,6 +233,64 @@ public sealed class FileBackupProvider(ISshProvider ssh)
                 Status: "ok"));
         }
         return artifacts;
+    }
+
+    /// <summary>
+    /// Restore canary: stream the configured sentinel file out of the LATEST snapshot
+    /// and count the bytes ON THE HOST (`| wc -c`) — the content never crosses the
+    /// wire and nothing is written anywhere, so the probe stays read-only. The
+    /// pipeline's exit code is wc's, so a failed restore surfaces as 0 bytes plus the
+    /// tool's stderr, which the check turns into a finding (not a provider error).
+    /// </summary>
+    public async Task<CanaryResult> ProbeCanaryAsync(FileBackupSource source, CancellationToken ct = default)
+    {
+        var canary = source.CanaryPath
+            ?? throw new ProviderException($"fileBackups '{source.Name}' has no canaryPath.");
+
+        switch (source.Kind)
+        {
+            case "restic":
+            {
+                var result = await ssh.RunAsync(source.Alias,
+                    $"restic -r '{source.Repo}' --password-file '{source.PasswordFile}' --no-lock dump latest '{canary}' | wc -c", ct);
+                return ToCanaryResult(source, canary, result);
+            }
+            case "borg":
+            {
+                // Borg needs the newest archive's NAME (no 'latest' selector), and
+                // stores paths without the leading slash.
+                var listing = await RunAsync(source.Alias,
+                    $"BORG_PASSCOMMAND='cat {source.PasswordFile}' borg list --json --last 1 '{source.Repo}'", ct);
+                var archive = ParseBorgLatestArchive(listing)
+                    ?? throw new ProviderException($"borg repo '{source.Repo}' has no archives to probe ({source.Name}).");
+                var result = await ssh.RunAsync(source.Alias,
+                    $"BORG_PASSCOMMAND='cat {source.PasswordFile}' borg extract --stdout '{source.Repo}::{archive}' '{canary.TrimStart('/')}' | wc -c", ct);
+                return ToCanaryResult(source, canary, result);
+            }
+            default:
+                throw new ProviderException($"canaryPath is not supported for fileBackups kind '{source.Kind}' ({source.Name}).");
+        }
+    }
+
+    public static string? ParseBorgLatestArchive(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("archives").EnumerateArray()
+            .Select(a => a.GetProperty("name").GetString())
+            .LastOrDefault(n => !string.IsNullOrEmpty(n));
+    }
+
+    private static CanaryResult ToCanaryResult(FileBackupSource source, string canary, SshResult result)
+    {
+        // Non-zero here is wc/ssh-level breakage (unreachable host, no wc), not a
+        // failed restore — that one exits 0 with a 0 count and stderr from the tool.
+        if (result.ExitCode != 0)
+            throw new ProviderException($"canary probe on {source.Alias} failed: {result.StdErr.Trim()}");
+        if (!long.TryParse(result.StdOut.Trim(), out var bytes))
+            throw new ProviderException($"canary probe on {source.Alias}: unexpected byte count '{result.StdOut.Trim()}'.");
+
+        var detail = result.StdErr.Trim();
+        return new CanaryResult(source.Name, source.Alias, canary, bytes, detail.Length > 0 ? detail : null);
     }
 
     private async Task<string> RunAsync(string alias, string command, CancellationToken ct)

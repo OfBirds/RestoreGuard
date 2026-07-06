@@ -53,6 +53,7 @@ The classic silent killer: your backup job archives the path the compose file
 | `image-backup/stale` | RED | newest image backup is older than `pbsMaxSnapshotAgeHours`
 | `image-backup/empty` | RED | the backup artifact is zero-sized
 | `image-backup/orphan` | YELLOW | a backup exists for a guest that no longer does — usually a rename/migration leftover worth pruning (or a sign the *new* guest isn't covered)
+| `three-two-one/image-local-only` | YELLOW | *every* image backup of a guest lives on non-shared storage of its own node — one disk or host failure takes the guest and all its copies together. Give it a copy that survives the node (PBS/shared storage, or sync the dump dir off the box)
 |===
 
 == PBS hygiene (`pbsMaintenance`, `pbsOffsite`)
@@ -80,6 +81,24 @@ dir, haos):
 | `file-backup/stale` | RED | newest artifact is older than the source's `maxAgeHours`
 | `file-backup/empty` | RED | the newest artifact is zero-sized
 |===
+
+[#restore-canary]
+=== Restore canary (`fileBackups` with `canaryPath` — restic/borg)
+
+Snapshots existing is not the same as backups *restoring*. Set `canaryPath` on a
+restic or borg source to a small file that must always be in the backup (a config
+file is ideal): every audit then streams that file out of the *latest* snapshot
+and counts the bytes *on the host* — a real end-to-end restore through
+decryption and chunk reads, with nothing written anywhere and no content leaving
+the machine.
+
+[cols="2,1,4"]
+|===
+| `restore-canary/failed` | RED | the canary restored as 0 bytes — wrong passphrase, corrupt repo, or the path fell out of the backup. Either way the backup just failed its restore drill
+|===
+
+NOTE: for borg, give the path as stored in the archive — the leading `/` is
+stripped automatically.
 
 == TrueNAS (`trueNas`)
 

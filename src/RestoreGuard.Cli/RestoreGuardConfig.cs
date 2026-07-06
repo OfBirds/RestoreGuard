@@ -93,6 +93,8 @@ public sealed record RestoreGuardConfig(
                 _ => $"fileBackups[{i}].kind '{s.Kind}' is unknown (restic, borg, kopia, dir, haos, snapper).",
             };
             if (kindError is not null) errors.Add(kindError);
+            if (!string.IsNullOrWhiteSpace(s.CanaryPath) && s.Kind is not ("restic" or "borg"))
+                errors.Add($"fileBackups[{i}].canaryPath is only supported for restic and borg (kind is '{s.Kind}').");
         }
 
         if (PbsOffsite is { } off && string.IsNullOrWhiteSpace(off.Alias))

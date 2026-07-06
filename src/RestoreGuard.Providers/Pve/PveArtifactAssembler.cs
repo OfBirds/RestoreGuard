@@ -40,7 +40,8 @@ public static class PveArtifactAssembler
                 Timestamp: snap.Ctime,
                 SizeBytes: snap.Size,
                 Method: snap.Format.Length > 0 ? snap.Format : (snap.Subtype == "lxc" ? "pbs-ct" : "pbs-vm"),
-                HasOffsiteCopy: false);
+                HasOffsiteCopy: false,
+                StoredOn: snap.Node.Length > 0 ? snap.Node : null);
         }).ToList();
     }
 

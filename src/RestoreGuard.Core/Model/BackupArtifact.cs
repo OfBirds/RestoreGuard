@@ -24,4 +24,8 @@ public sealed record BackupArtifact(
     long SizeBytes,
     string? Method,
     bool HasOffsiteCopy,
-    string? Status = null);
+    string? Status = null,
+    // The host/node physically holding the bytes, when discovery knows it
+    // (null = unknown). What lets the 3-2-1 check tell "backup on the box it
+    // protects" from "backup on the identically-named storage of another node".
+    string? StoredOn = null);

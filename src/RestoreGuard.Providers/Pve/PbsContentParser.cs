@@ -14,7 +14,11 @@ public sealed record PbsSnapshot(
     string? Notes,
     string Volid,
     string Format = "",   // pbs-ct / pbs-vm / vma.zst / tar.zst
-    BackupTier Tier = BackupTier.PbsImage);
+    BackupTier Tier = BackupTier.PbsImage,
+    // The node whose storage listing produced this snapshot: for a NON-shared
+    // storage that is the box physically holding the bytes ("local" exists on
+    // every node — the name alone can't say which disk). Stamped by the provider.
+    string Node = "");
 
 public static class PbsContentParser
 {

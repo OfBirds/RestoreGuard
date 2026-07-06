@@ -61,6 +61,10 @@ public static class AuditRunner
         var fileBackupTasks = (config.FileBackups ?? [])
             .Select(s => Track("files", $"{s.Alias} ({s.Name})", fileBackupProvider.GetAsync(s)))
             .ToList();
+        var canaryTasks = (config.FileBackups ?? [])
+            .Where(s => !string.IsNullOrWhiteSpace(s.CanaryPath))
+            .Select(s => Track("canary", $"{s.Alias} ({s.Name})", fileBackupProvider.ProbeCanaryAsync(s)))
+            .ToList();
 
         Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
 
@@ -141,6 +145,13 @@ public static class AuditRunner
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
+        var canaries = new List<CanaryResult>();
+        foreach (var (host, canary, error) in canaryTasks.Select(t => t.Result))
+        {
+            if (canary is not null) canaries.Add(canary);
+            if (error is not null) providerErrors.Add($"{host}: {error}");
+        }
+
         var inventory = new LabInventory(DateTimeOffset.UtcNow, services, artifacts, storage);
 
         List<ICheck> checks = [new MountDriftCheck(), new ConfigDriftCheck(), new StorageCapacityCheck(new StorageCapacityOptions())];
@@ -153,6 +164,9 @@ public static class AuditRunner
         {
             checks.Add(new ImageBackupCheck(new ImageBackupOptions(
                 TimeSpan.FromHours(config.PbsMaxSnapshotAgeHours > 0 ? config.PbsMaxSnapshotAgeHours : 26))));
+            checks.Add(new ThreeTwoOneCheck(pveStorages
+                .Select(s => new StorageLocality(s.Target.Name, s.Target.Host, s.Shared))
+                .ToList()));
         }
         if (config.TrueNas is { } tnc)
         {
@@ -176,6 +190,10 @@ public static class AuditRunner
             checks.Add(new FileBackupCheck(fbs
                 .Select(s => new FileBackupExpectation(s.Name, s.Alias, TimeSpan.FromHours(s.MaxAgeHours)))
                 .ToList()));
+        }
+        if (canaries.Count > 0)
+        {
+            checks.Add(new RestoreCanaryCheck(canaries));
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);

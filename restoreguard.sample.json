@@ -87,6 +87,10 @@
   // files, e.g. offen/docker-volume-backup tarballs), "haos" (Home Assistant OS full
   // backups via the Proxmox qemu guest agent). Each configured source MUST produce
   // artifacts — an empty repo / dir / no full HA backup is a RED finding.
+  // canaryPath (restic/borg, optional): the restore canary — a small file that must
+  // restore from the LATEST snapshot on every audit (streamed + counted on the host;
+  // nothing is written, no content leaves the machine). Pick a file that is always
+  // in the backup, like a compose/config file. 0 bytes back = RED.
   "fileBackups": [
     {
       "name": "restic app configs",
@@ -94,7 +98,8 @@
       "alias": "mydockerhost",
       "repo": "/mnt/nas/restic-repo",
       "passwordFile": "/root/.restic-pass",
-      "maxAgeHours": 26
+      "maxAgeHours": 26,
+      "canaryPath": "/opt/apps/docker-compose.yml"
     },
     {
       "name": "borg system configs",
@@ -102,7 +107,8 @@
       "alias": "myotherhost",
       "repo": "/var/backups/borg",
       "passwordFile": "/root/.borg-pass",
-      "maxAgeHours": 26
+      "maxAgeHours": 26,
+      "canaryPath": "/etc/fstab"
     },
     {
       "name": "myvolume tarballs",

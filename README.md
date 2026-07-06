@@ -41,6 +41,14 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
 - **File-level backup tools** — restic, borg, kopia, snapper (btrfs), Home
   Assistant native backups, or plain archive directories: snapshots exist, are
   fresh, and aren't suspiciously small.
+- **Restore canary** — snapshots existing ≠ backups restoring. Opt a restic/borg
+  source into a per-audit restore drill: a sentinel file is streamed out of the
+  *latest* snapshot and byte-counted on the host (nothing written, no content
+  over the wire). 0 bytes back — wrong passphrase, corrupt chunks, path fell out
+  of the backup — is RED.
+- **3-2-1 hygiene (Proxmox)** — a guest whose *every* image backup sits on
+  non-shared storage of its own node gets flagged: one disk or host failure
+  takes the guest and all its copies together.
 - **TrueNAS** — ZFS snapshot freshness, cloud-sync tasks succeeding, top-level
   datasets that never leave the box, pool health + scrub age.
 - **Off-site freshness & capacity** — the sync actually ran, succeeded, and the

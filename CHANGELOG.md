@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Restore canary** (`fileBackups[].canaryPath`, restic/borg): every audit
+  streams a configured sentinel file out of the *latest* snapshot and counts the
+  bytes on the host — a real end-to-end restore drill through decryption and
+  chunk reads, with nothing written and no content leaving the machine. A
+  0-byte restore is RED (`restore-canary/failed`).
+- **3-2-1 hygiene check** (`three-two-one/image-local-only`, YELLOW): a Proxmox
+  guest whose every image backup lands on non-shared storage of its own node —
+  the backup dies with the box. Backup artifacts now internally carry the node
+  that physically holds them, which disambiguates same-named local storages
+  (`local` exists on every node).
+
 ## [0.1.12] - 2026-07-06
 
 ### Added
