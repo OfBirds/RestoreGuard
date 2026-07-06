@@ -10,7 +10,21 @@ if (parsed.Error is not null)
     return 2;
 }
 
-var ssh = new SshProvider();
+// First Ctrl+C: cancel gracefully — every in-flight ssh dies, providers degrade
+// to errors, and the audit still prints a partial report saying exactly which
+// probes finished and which were cut off. Second Ctrl+C: terminate hard.
+var shutdown = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) =>
+{
+    if (!shutdown.IsCancellationRequested)
+    {
+        e.Cancel = true;
+        Console.Error.WriteLine("Ctrl+C - stopping probes, reporting what finished (press again to exit hard)...");
+        shutdown.Cancel();
+    }
+};
+
+var ssh = new SshProvider(shutdown.Token);
 
 if (parsed.Command == "help")
 {

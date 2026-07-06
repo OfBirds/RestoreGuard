@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using RestoreGuard.Checks;
 using RestoreGuard.Core;
 using RestoreGuard.Core.Model;
@@ -23,34 +24,56 @@ public static class AuditRunner
         var dbDump = new DbDumpProvider(ssh);
         var pve = new PveProvider(ssh);
 
+        // Every probe registers here so the ticker below can name what is
+        // still running — a silent parallel audit is indistinguishable from a
+        // frozen one, and that ambiguity is itself a bug.
+        var probes = new List<(string Kind, string Host, Task Task)>();
+        Task<(string, T?, string?)> Track<T>(string kind, string host, Task<T> task) where T : class
+        {
+            var wrapped = WithHost(kind, host, task);
+            probes.Add((kind, host, wrapped));
+            return wrapped;
+        }
+
         var dockerTasks = config.DockerHosts
-            .Select(h => WithHost(h.Alias, docker.GetServicesAsync(h)))
+            .Select(h => Track("docker", h.Alias, docker.GetServicesAsync(h)))
             .ToList();
         var pveTasks = (config.PveNodes ?? [])
-            .Select(n => WithHost(n.Alias, pve.GetNodeAsync(n)))
+            .Select(n => Track("pve", n.Alias, pve.GetNodeAsync(n)))
             .ToList();
         var dumpTasks = (config.LogicalDbBackups ?? [])
-            .Select(db => WithHost(db.Host, dbDump.GetArtifactsAsync(db.Host, db.Path, db.Method)))
+            .Select(db => Track("db-dumps", db.Host, dbDump.GetArtifactsAsync(db.Host, db.Path, db.Method)))
             .ToList();
         var trueNasTask = config.TrueNas is { } tn
-            ? WithHost(tn.Alias, new TrueNasProvider(ssh).GetAsync(new TrueNasConfig(tn.Alias, tn.ExcludeDatasets)))
+            ? Track("truenas", tn.Alias, new TrueNasProvider(ssh).GetAsync(new TrueNasConfig(tn.Alias, tn.ExcludeDatasets)))
             : Task.FromResult<(string, TrueNasProvider.TrueNasInventory?, string?)>(("", null, null));
         var offsiteTask = config.PbsOffsite is { } off
-            ? WithHost(off.Alias, new PbsOffsiteProvider(ssh).GetAsync(new PbsOffsiteConfig(off.Alias, off.LogPath, off.RcloneRemote, off.TargetName)))
+            ? Track("offsite", off.Alias, new PbsOffsiteProvider(ssh).GetAsync(new PbsOffsiteConfig(off.Alias, off.LogPath, off.RcloneRemote, off.TargetName)))
             : Task.FromResult<(string, PbsOffsiteProvider.OffsiteState?, string?)>(("", null, null));
         var maintenanceTask = config.PbsMaintenance is { } pm
-            ? WithHost(pm.ExecAlias, new PbsMaintenanceProvider(ssh).GetAsync(new PbsMaintenanceConfig(pm.ExecAlias, pm.ContainerId, pm.Datastore)))
+            ? Track("pbs-maint", pm.ExecAlias, new PbsMaintenanceProvider(ssh).GetAsync(new PbsMaintenanceConfig(pm.ExecAlias, pm.ContainerId, pm.Datastore)))
             : Task.FromResult<(string, DatastoreMaintenance?, string?)>(("", null, null));
         var smartProvider = new SmartProvider(ssh);
         var smartTasks = (config.SmartHosts ?? [])
-            .Select(h => WithHost(h, smartProvider.GetAsync(h)))
+            .Select(h => Track("smart", h, smartProvider.GetAsync(h)))
             .ToList();
         var fileBackupProvider = new FileBackupProvider(ssh);
         var fileBackupTasks = (config.FileBackups ?? [])
-            .Select(s => WithHost($"{s.Alias} ({s.Name})", fileBackupProvider.GetAsync(s)))
+            .Select(s => Track("files", $"{s.Alias} ({s.Name})", fileBackupProvider.GetAsync(s)))
             .ToList();
 
-        await Task.WhenAll([.. dockerTasks, .. pveTasks, .. dumpTasks, trueNasTask, offsiteTask, maintenanceTask, .. smartTasks, .. fileBackupTasks]);
+        Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
+
+        var discovery = Stopwatch.StartNew();
+        var all = Task.WhenAll(probes.Select(p => p.Task));
+        while (await Task.WhenAny(all, Task.Delay(TimeSpan.FromSeconds(10))) != all)
+        {
+            var pending = probes.Where(p => !p.Task.IsCompleted)
+                .Select(p => $"[{p.Kind}] {p.Host}").ToList();
+            if (pending.Count > 0)
+                Progress($"  ... still waiting ({discovery.Elapsed.TotalSeconds:0}s): {string.Join(", ", pending)}");
+        }
+        Progress($"discovery done in {discovery.Elapsed.TotalSeconds:0.0}s - evaluating checks...");
 
         var services = new List<Service>();
         var artifacts = new List<BackupArtifact>();
@@ -180,15 +203,23 @@ public static class AuditRunner
     }
 
     // A provider that dies must degrade to a visible error, never kill the whole audit.
-    private static async Task<(string Host, T? Result, string? Error)> WithHost<T>(string host, Task<T> task) where T : class
+    private static async Task<(string Host, T? Result, string? Error)> WithHost<T>(string kind, string host, Task<T> task) where T : class
     {
+        var sw = Stopwatch.StartNew();
         try
         {
-            return (host, await task, null);
+            var result = await task;
+            Progress($"  ok    [{kind}] {host} ({sw.Elapsed.TotalSeconds:0.0}s)");
+            return (host, result, null);
         }
         catch (Exception ex)
         {
+            Progress($"  FAIL  [{kind}] {host}: {ex.Message} ({sw.Elapsed.TotalSeconds:0.0}s)");
             return (host, null, ex.Message);
         }
     }
+
+    /// <summary>Progress goes to stderr: visible live in a terminal and in cron
+    /// logs, while stdout stays exactly the report (the --json contract).</summary>
+    private static void Progress(string line) => Console.Error.WriteLine(line);
 }
