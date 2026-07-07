@@ -62,8 +62,7 @@ every push and pull request.
 A check isn't done when it works — the wizard question (live-probed), doctor
 preflight, config validation, docs pages, BOTH `restoreguard.sample.json`
 copies (root + `docs/modules/ROOT/examples/`), README, and CHANGELOG move
-together. The full checklist lives in
-[.internal/skills/surface-coverage/SKILL.md](.internal/skills/surface-coverage/SKILL.md).
+together.
 
 ## Submitting changes
 
