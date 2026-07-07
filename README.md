@@ -166,9 +166,12 @@ dist/RestoreGuard.Cli audit
 ```
 
 - **`--json`** is the integration surface (findings, suppressed findings, active
-  suppressions, provider errors, counts). There is deliberately **no daemon or
-  HTTP endpoint** — one-shot CLI + JSON + exit codes compose with the scheduler
-  you already run (cron, systemd timers, CI).
+  suppressions, provider errors, counts). It carries a `schemaVersion` (currently
+  `1`) and ships a canonical JSON Schema per version at
+  `contracts/restoreguard-report.v{N}.schema.json` for consumers to validate against;
+  the shape is a contract — additive changes only, and a breaking change bumps the
+  version. There is deliberately **no daemon or HTTP endpoint** — one-shot CLI + JSON
+  + exit codes compose with the scheduler you already run (cron, systemd timers, CI).
 - **Exit codes:** `0` all green/yellow, `1` at least one RED finding **or** a
   provider error (partial discovery), `2` config/preflight problem. Cron-friendly.
 - **Suppressions** (`suppressions.json`): a list of `{host, service, ruleId,

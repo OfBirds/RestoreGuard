@@ -26,6 +26,7 @@ changes are additive only, so scripts written today keep working:
 [source,json]
 ----
 {
+  "schemaVersion": 1,
   "generatedAt": "2026-07-05T03:00:12+00:00",
   "overall": "red",
   "partial": false,
@@ -52,6 +53,13 @@ changes are additive only, so scripts written today keep working:
 }
 ----
 
+* `schemaVersion` is the version of this contract — currently `1`, and deliberately
+  decoupled from RestoreGuard's release version. It bumps only on a *breaking* shape
+  change (a field renamed, removed, retyped, or given new meaning); additive growth
+  leaves it unchanged. The canonical JSON Schema for each version ships in the repo at
+  `contracts/restoreguard-report.v{N}.schema.json` — validate against it, and on an
+  unknown (newer) `schemaVersion` treat the report as one you can't yet parse rather
+  than guessing its shape.
 * `overall` is the worst severity present; `partial: true` means at least one
   provider failed and `providerErrors` says which.
 * `suppressedFindings` and `activeSuppressions` are always included — the JSON
