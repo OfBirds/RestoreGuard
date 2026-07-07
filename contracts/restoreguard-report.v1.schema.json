@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ofbirds.org/schemas/restoreguard/report/v1.json",
+  "title": "RestoreGuard audit report",
+  "description": "The stable machine-readable report emitted by `restoreguard --json`. Field names are a contract: additive changes only within a schemaVersion; a breaking change bumps schemaVersion and ships a new schema file. `additionalProperties` is permissive by design so a consumer validating an OLDER schema against a NEWER (additively-grown) report still passes.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "overall",
+    "partial",
+    "counts",
+    "findings",
+    "suppressedFindings",
+    "activeSuppressions",
+    "providerErrors"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": {
+      "description": "Version of this report contract. Constant 1 for documents matching this schema.",
+      "type": "integer",
+      "const": 1
+    },
+    "generatedAt": {
+      "description": "When the audit was generated (DateTimeOffset, ISO 8601 with offset).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "overall": {
+      "description": "The audit's overall verdict — the max severity across findings.",
+      "$ref": "#/$defs/severity"
+    },
+    "partial": {
+      "description": "True when discovery was incomplete (one or more providerErrors); a partial run must NOT be read as a clean bill of health.",
+      "type": "boolean"
+    },
+    "counts": {
+      "type": "object",
+      "required": ["services", "backupArtifacts", "storageTargets", "red", "yellow"],
+      "additionalProperties": true,
+      "properties": {
+        "services": { "type": "integer", "minimum": 0 },
+        "backupArtifacts": { "type": "integer", "minimum": 0 },
+        "storageTargets": { "type": "integer", "minimum": 0 },
+        "red": { "type": "integer", "minimum": 0 },
+        "yellow": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "findings": {
+      "description": "Active findings, one per failed/degraded check.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "suppressedFindings": {
+      "description": "Findings matched by an active suppression — rendered in their own section, never silently dropped.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    },
+    "activeSuppressions": {
+      "description": "Owner-accepted suppressions currently in force.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/suppression" }
+    },
+    "providerErrors": {
+      "description": "Human-readable discovery errors (e.g. 'lab118: unreachable'). Non-empty implies partial=true.",
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "severity": {
+      "type": "string",
+      "enum": ["green", "yellow", "red"]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["ruleId", "severity", "service", "host", "evidence", "suggestedAction"],
+      "additionalProperties": true,
+      "properties": {
+        "ruleId": { "type": "string" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "service": { "type": "string" },
+        "host": { "type": "string" },
+        "evidence": { "type": "string" },
+        "suggestedAction": { "type": "string" }
+      }
+    },
+    "suppression": {
+      "type": "object",
+      "required": ["host", "service", "ruleId", "reason", "decidedOn"],
+      "additionalProperties": true,
+      "properties": {
+        "host": { "type": "string" },
+        "service": { "type": "string" },
+        "ruleId": { "type": "string" },
+        "reason": { "type": "string" },
+        "decidedOn": { "type": "string", "format": "date" },
+        "expires": { "type": ["string", "null"], "format": "date" },
+        "retriggerCondition": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

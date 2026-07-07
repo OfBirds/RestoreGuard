@@ -11,6 +11,16 @@ namespace RestoreGuard.Cli;
 /// </summary>
 public static class JsonReportWriter
 {
+    /// <summary>
+    /// Version of the report CONTRACT (this JSON shape), deliberately NOT tied to
+    /// RestoreGuard's product/package version. Bumps ONLY on a breaking change to
+    /// the shape (a field renamed, removed, retyped, or given new meaning);
+    /// additive changes (a new field) leave it untouched. The canonical schema for
+    /// each version lives in <c>contracts/restoreguard-report.v{N}.schema.json</c>
+    /// and is the contract of record for downstream consumers (e.g. HCC).
+    /// </summary>
+    public const int SchemaVersion = 1;
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -22,6 +32,7 @@ public static class JsonReportWriter
     {
         var payload = new
         {
+            schemaVersion = SchemaVersion,
             generatedAt = report.GeneratedAt,
             overall = report.Overall,
             partial = providerErrors.Count > 0,

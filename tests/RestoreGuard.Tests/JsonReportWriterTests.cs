@@ -7,8 +7,10 @@ namespace RestoreGuard.Tests;
 
 public class JsonReportWriterTests
 {
-    [Fact]
-    public void PayloadShapeIsStable()
+    // The fixed inputs whose serialization is frozen in Fixtures/report-golden.v1.json.
+    // Deterministic on purpose (fixed timestamp, no ambient state) so the output is a
+    // stable snapshot of the machine-readable contract.
+    private static (Report report, LabInventory inventory, string[] providerErrors) Sample()
     {
         var now = new DateTimeOffset(2026, 7, 4, 23, 30, 0, TimeSpan.Zero);
         var finding = new Finding("db-backup/stale", Severity.Red, "svc", "lab55", "old", "fix it");
@@ -16,20 +18,36 @@ public class JsonReportWriterTests
         var report = new Report(now, [finding], [], [suppression]);
         var inventory = new LabInventory(now,
             [new Service("svc", "lab55", ServiceKind.Container, "running", null, [], null)], [], []);
+        return (report, inventory, ["lab118: unreachable"]);
+    }
 
-        var json = JsonReportWriter.Write(report, inventory, ["lab118: unreachable"]);
+    private static string Normalize(string s) => s.Replace("\r\n", "\n").TrimEnd('\n');
+
+    [Fact]
+    public void SchemaVersionIsStamped()
+    {
+        var (report, inventory, providerErrors) = Sample();
+
+        var json = JsonReportWriter.Write(report, inventory, providerErrors);
 
         using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-        // These names are the machine-readable contract — additive changes only.
-        Assert.Equal("red", root.GetProperty("overall").GetString());
-        Assert.True(root.GetProperty("partial").GetBoolean());
-        Assert.Equal(1, root.GetProperty("counts").GetProperty("services").GetInt32());
-        Assert.Equal(1, root.GetProperty("counts").GetProperty("red").GetInt32());
-        Assert.Equal("db-backup/stale",
-            root.GetProperty("findings")[0].GetProperty("ruleId").GetString());
-        Assert.Equal("zigbee2mqtt",
-            root.GetProperty("activeSuppressions")[0].GetProperty("service").GetString());
-        Assert.Equal("lab118: unreachable", root.GetProperty("providerErrors")[0].GetString());
+        // Downstream consumers (HCC) key off this to pick the right reader; it must be
+        // the first thing they can trust. Constant per JsonReportWriter.SchemaVersion.
+        Assert.Equal(JsonReportWriter.SchemaVersion, doc.RootElement.GetProperty("schemaVersion").GetInt32());
+    }
+
+    [Fact]
+    public void PayloadMatchesGoldenSnapshot()
+    {
+        var (report, inventory, providerErrors) = Sample();
+
+        var json = JsonReportWriter.Write(report, inventory, providerErrors);
+
+        // A FULL snapshot, not a spot-check: any renamed/removed/retyped/reordered field
+        // fails here — which is exactly the drift a downstream consumer would otherwise
+        // discover only at runtime. Update the golden deliberately, and bump SchemaVersion
+        // (+ ship a new contracts/*.schema.json) when the change is breaking.
+        var golden = File.ReadAllText(Path.Combine("Fixtures", "report-golden.v1.json"));
+        Assert.Equal(Normalize(golden), Normalize(json));
     }
 }

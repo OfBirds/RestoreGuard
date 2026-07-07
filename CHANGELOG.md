@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`schemaVersion` on the `--json` report** (additive; currently `1`): the report
+  contract now carries an explicit version, deliberately decoupled from RestoreGuard's
+  product version — it bumps only on a *breaking* shape change (field renamed, removed,
+  retyped, or given new meaning), never on additive growth. The canonical JSON Schema
+  for each version lives in `contracts/restoreguard-report.v{N}.schema.json` and is the
+  contract of record for downstream consumers. Existing consumers ignore the new field.
+- **Full golden-snapshot test for the report shape** (`report-golden.v1.json`): replaces
+  the previous 7-property spot-check, so any renamed/removed/retyped field now fails CI
+  at the source instead of silently reaching a consumer.
+
 ## [0.1.13] - 2026-07-06
 
 Six new checks, all live-verified against the development lab before release.

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-04T23:30:00+00:00",
+  "overall": "red",
+  "partial": true,
+  "counts": {
+    "services": 1,
+    "backupArtifacts": 0,
+    "storageTargets": 0,
+    "red": 1,
+    "yellow": 0
+  },
+  "findings": [
+    {
+      "ruleId": "db-backup/stale",
+      "severity": "red",
+      "service": "svc",
+      "host": "lab55",
+      "evidence": "old",
+      "suggestedAction": "fix it"
+    }
+  ],
+  "suppressedFindings": [],
+  "activeSuppressions": [
+    {
+      "host": "lab98",
+      "service": "zigbee2mqtt",
+      "ruleId": "service-state/stopped",
+      "reason": "bypass",
+      "decidedOn": "2026-06-29",
+      "expires": null,
+      "retriggerCondition": null
+    }
+  ],
+  "providerErrors": [
+    "lab118: unreachable"
+  ]
+}
