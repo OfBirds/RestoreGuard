@@ -28,3 +28,6 @@ nupkg/
 restoreguard.json
 suppressions.json
 *.bak
+
+# Private planning notes — never in the public repo
+ROADMAP.md

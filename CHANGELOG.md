@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Report destinations (`reporting` config section)**: every audit now *delivers* its
+  JSON report instead of only printing it — to a **folder** (timestamped
+  `rg-report-<utc-ts>.json` + atomically-replaced `latest.json`, optional `keepLast`
+  pruning), an **S3-compatible bucket** (MinIO/Garage/R2/AWS; hand-rolled SigV4, no SDK),
+  and/or a **MongoDB collection** (one queryable document per report) — any combination,
+  in parallel. With nothing configured, reports go to a per-user default folder
+  (`Documents\RestoreGuard\reports` on Windows, `~/.local/share/restoreguard/reports`
+  elsewhere; `RESTOREGUARD_REPORTS_DIR` overrides). Secrets support the `*File` pattern.
+- **`r` menu entry — reporting wizard**: interactive destination setup that live-probes
+  every answer (folder write test, S3 put+delete round-trip, MongoDB ping) and rewrites
+  only the `reporting` section of the config.
+- **`doctor` verifies report destinations** as part of preflight, and a destination
+  that can't be written turns the audit run into exit `1` — delivery failures are as
+  loud as findings (documented in the exit-code table).
+
+### Changed
+
+- `MongoDB.Driver` is now the CLI's only runtime package dependency (the mongo sink
+  needs the wire protocol); the S3 sink deliberately stays dependency-free.
+
 ## [0.1.14] - 2026-07-07
 
 ### Added

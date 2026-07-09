@@ -212,6 +212,11 @@ SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «En
 Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
+Every audit also saves its JSON report to a per-user reports folder
+(Documents\RestoreGuard\reports on Windows, ~/.local/share/restoreguard/reports
+elsewhere) — type  r  in the menu to send reports to a folder of your
+choice, an S3-compatible bucket, and/or MongoDB instead.
+
 More to add later? PBS GC/verify hygiene (pbsMaintenance) is documented
 with examples in restoreguard.sample.json.
 -------------------------------------------------------------------------------

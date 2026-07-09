@@ -88,11 +88,14 @@ public static class InteractiveMode
                     await AuditRunner.RunAsync(config!, configDir, ssh, jsonOutput: true);
                     break;
                 case "d" or "doctor":
-                    await Doctor.RunAsync(config!, ssh);
+                    await Doctor.RunAsync(config!, ssh, configDir);
                     break;
                 case "s" or "setup" or "init":
                     if (await RunSetupAsync(configPath, ssh, io))
                         io.WriteLine("Setup done — run  d  (doctor) to verify the remaining per-host requirements.");
+                    break;
+                case "r" or "reporting":
+                    await ReportingWizard.ConfigureAsync(configPath, io);
                     break;
                 case "q" or "quit" or "exit" or null:
                     return 0;
@@ -110,6 +113,7 @@ public static class InteractiveMode
     {
         io.WriteLine("  a = run the audit       d = doctor (verify host access)");
         io.WriteLine("  j = audit, JSON output  s = setup (redo the config)");
+        io.WriteLine("  r = reporting (where audit reports are saved)");
         io.WriteLine("  q = quit");
     }
 
@@ -678,13 +682,18 @@ public static class InteractiveMode
             Configured: {string.Join(", ", configured)}.
             Wrote {configPath} (+ suppressions.json for known exceptions later).
 
+            Every audit also saves its JSON report to a per-user reports folder
+            (Documents\RestoreGuard\reports on Windows, ~/.local/share/restoreguard/reports
+            elsewhere) — type  r  in the menu to send reports to a folder of your
+            choice, an S3-compatible bucket, and/or MongoDB instead.
+
             More to add later? PBS GC/verify hygiene (pbsMaintenance) is documented
             with examples in restoreguard.sample.json.
             """);
         return true;
     }
 
-    private static readonly JsonSerializerOptions WizardJson = new()
+    internal static readonly JsonSerializerOptions WizardJson = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = true,
@@ -804,14 +813,14 @@ public static class InteractiveMode
         }
     }
 
-    private static string Ask(WizardIO io, string prompt, string defaultValue)
+    internal static string Ask(WizardIO io, string prompt, string defaultValue)
     {
         io.Write(defaultValue.Length > 0 ? $"{prompt} [{defaultValue}]: " : $"{prompt}: ");
         var answer = io.ReadLine()?.Trim() ?? "";
         return answer.Length > 0 ? answer : defaultValue;
     }
 
-    private static bool AskYesNo(WizardIO io, string prompt)
+    internal static bool AskYesNo(WizardIO io, string prompt)
     {
         // A typo must not silently count as "no" — a mistyped yes would skip a
         // whole section without a word. Only Enter/n/no mean no; EOF means no.

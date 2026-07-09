@@ -51,7 +51,7 @@ var configDir = Path.GetDirectoryName(Path.GetFullPath(parsed.ConfigPath))!;
 
 return parsed.Command switch
 {
-    "doctor" => await Doctor.RunAsync(config, ssh),
+    "doctor" => await Doctor.RunAsync(config, ssh, configDir),
     _ => await AuditRunner.RunAsync(config, configDir, ssh, parsed.Json),
 };
 
@@ -78,9 +78,15 @@ public partial class Program
               --json                machine-readable JSON report instead of the
                                     colored console report
 
+            Every audit also delivers its JSON report to the configured destinations
+            (config "reporting" section: folder, S3-compatible storage, MongoDB — any
+            combination; set up interactively with  r  in the menu). With none
+            configured it goes to the per-user reports folder.
+
             Exit codes:
               0  no RED findings (doctor: all requirements satisfied)
-              1  at least one RED finding, or discovery was partial (a provider failed)
+              1  at least one RED finding, discovery was partial (a provider failed),
+                 or the report could not be delivered to a configured destination
               2  config problem, unknown argument, or failed preflight
             """);
     }

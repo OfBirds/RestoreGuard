@@ -18,7 +18,8 @@ public sealed record RestoreGuardConfig(
     string? SuppressionsFile,
     IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null,
     IReadOnlyList<RestoreGuard.Providers.Offsite.OffsiteJobConfig>? OffsiteJobs = null,
-    IReadOnlyList<RestoreGuard.Providers.Sqlite.SqliteBackupDirConfig>? SqliteBackupDirs = null)
+    IReadOnlyList<RestoreGuard.Providers.Sqlite.SqliteBackupDirConfig>? SqliteBackupDirs = null,
+    ReportingConfig? Reporting = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -128,6 +129,8 @@ public sealed record RestoreGuardConfig(
             errors.Add("pbsOffsite.alias is empty.");
         if (PbsMaintenance is { } pm && string.IsNullOrWhiteSpace(pm.ExecAlias))
             errors.Add("pbsMaintenance.execAlias is empty.");
+
+        Reporting?.Validate(errors);
 
         return errors;
     }

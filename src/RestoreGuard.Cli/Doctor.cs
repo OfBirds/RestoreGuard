@@ -151,7 +151,7 @@ public static class Doctor
         return probes;
     }
 
-    public static async Task<int> RunAsync(RestoreGuardConfig config, ISshProvider ssh)
+    public static async Task<int> RunAsync(RestoreGuardConfig config, ISshProvider ssh, string configDir = ".")
     {
         var probes = BuildProbes(config);
         if (probes.Count == 0)
@@ -186,7 +186,33 @@ public static class Doctor
                 Console.WriteLine($"        -> {Truncate(detail)}");
         }
 
-        var failures = results.Where(r => !r.Ok).ToList();
+        // Report destinations are prerequisites too: a nightly audit whose report
+        // can't be delivered is exit-1 every night — catch that here instead.
+        var sinkResults = await Task.WhenAll(ReportPublisher.BuildSinks(config, configDir).Select(async sink =>
+        {
+            try
+            {
+                await sink.VerifyAsync();
+                return (Sink: sink, Ok: true, Detail: "");
+            }
+            catch (Exception ex)
+            {
+                return (Sink: sink, Ok: false, Detail: ex.Message);
+            }
+        }));
+        foreach (var (sink, ok, detail) in sinkResults)
+        {
+            Console.ForegroundColor = ok ? ConsoleColor.Green : ConsoleColor.Red;
+            Console.Write(ok ? "[ OK ]" : "[FAIL]");
+            Console.ResetColor();
+            Console.WriteLine($" {"(local)",-10} {"reporting",-15} report destination writable: {sink.Description}");
+            if (!ok && detail.Length > 0)
+                Console.WriteLine($"        -> {Truncate(detail)}");
+        }
+
+        var failures = results.Where(r => !r.Ok).Select(r => (r.Ok, r.Detail))
+            .Concat(sinkResults.Where(r => !r.Ok).Select(r => (r.Ok, r.Detail)))
+            .ToList();
         Console.WriteLine();
         if (failures.Count == 0)
         {

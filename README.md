@@ -172,8 +172,15 @@ dist/RestoreGuard.Cli audit
   the shape is a contract — additive changes only, and a breaking change bumps the
   version. There is deliberately **no daemon or HTTP endpoint** — one-shot CLI + JSON
   + exit codes compose with the scheduler you already run (cron, systemd timers, CI).
+- **Report destinations** (`reporting` config section, guided by the `r` menu
+  entry): every audit also *delivers* the JSON report — to a folder (timestamped
+  history + an atomically-replaced `latest.json`), an S3-compatible bucket
+  (MinIO/Garage/R2/AWS), and/or a MongoDB collection, any combination in
+  parallel. With nothing configured it lands in a per-user default folder, so a
+  report always exists somewhere predictable for scripts and dashboards.
 - **Exit codes:** `0` all green/yellow, `1` at least one RED finding **or** a
-  provider error (partial discovery), `2` config/preflight problem. Cron-friendly.
+  provider error (partial discovery) **or** an undeliverable report,
+  `2` config/preflight problem. Cron-friendly.
 - **Suppressions** (`suppressions.json`): a list of `{host, service, ruleId,
   reason, decidedOn, expires?, retriggerCondition?}`. Suppressed findings are
   reported in their own section, never silently dropped, and expire on their

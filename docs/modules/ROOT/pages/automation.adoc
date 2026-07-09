@@ -9,7 +9,7 @@ CI job plus the exit codes and `--json` cover the "audit me every night" case.
 [cols="1,4"]
 |===
 | `0` | all green/yellow — nothing restore-threatening
-| `1` | at least one *RED* finding, *or* a provider error (a host couldn't be fully audited, so the result is partial — treat it as a failure, since unaudited is unprotected)
+| `1` | at least one *RED* finding, *or* a provider error (a host couldn't be fully audited, so the result is partial — treat it as a failure, since unaudited is unprotected), *or* the report couldn't be delivered to a configured destination
 | `2` | config or preflight problem (bad config file, unreachable prerequisite)
 |===
 
@@ -65,14 +65,37 @@ changes are additive only, so scripts written today keep working:
 * `suppressedFindings` and `activeSuppressions` are always included — the JSON
   shows what was silenced, same as the text report.
 
+== Report destinations: don't parse stdout, read a destination
+
+Redirecting stdout works, but the audit already *persists* every report by
+itself: to a folder (with a stable `latest.json`), an S3-compatible bucket,
+and/or a MongoDB collection — see the
+xref:configuration.adoc#_reporting_where_audit_reports_are_delivered[`reporting`
+section]. With nothing configured, reports land in the per-user default folder
+(`Documents\RestoreGuard\reports` on Windows,
+`~/.local/share/restoreguard/reports` elsewhere). A consumer script should
+read the destination *from the config* instead of hard-coding paths — then
+reconfiguring RestoreGuard never breaks the script:
+
+[source,shell]
+----
+CONFIG=/etc/restoreguard/restoreguard.json
+REPORT_DIR=$(jq -r '.reporting.folder.path // empty' "$CONFIG")
+REPORT="${REPORT_DIR:-$HOME/.local/share/restoreguard/reports}/latest.json"
+----
+
+`latest.json` is replaced atomically (temp file + rename), so a reader or file
+watcher never sees a half-written report. A destination that can't be written
+turns the run into exit `1` — delivery failures are as loud as findings.
+
 == Nightly audit with cron
 
 [source,shell]
 ----
 # /etc/cron.d/restoreguard — 07:00, after the night's backup jobs finished
 0 7 * * * auditor cd /home/auditor/goose && \
-  /home/auditor/.local/bin/restoreguard audit --json > last-report.json \
-  || echo "backup audit RED or failed - check last-report.json" | mail -s "goose alarm" you@example.com
+  /home/auditor/.local/bin/restoreguard audit --json > /dev/null \
+  || echo "backup audit RED or failed - check the report folder" | mail -s "goose alarm" you@example.com
 ----
 
 Because a partial audit exits `1` too, "the audit itself broke" and "a backup
@@ -80,12 +103,12 @@ is bad" both raise the alarm — there is no state where failure looks like
 success.
 
 The same pattern works with a systemd timer, Gotify/ntfy hooks, or any
-monitoring system that can run a command and read an exit code; feed
-`last-report.json` to `jq` for dashboards:
+monitoring system that can run a command and read an exit code; feed the
+persisted report to `jq` for dashboards:
 
 [source,shell]
 ----
-jq -r '.findings[] | "\(.severity)\t\(.ruleId)\t\(.service)"' last-report.json
+jq -r '.findings[] | "\(.severity)\t\(.ruleId)\t\(.service)"' "$REPORT"
 ----
 
 == Doctor in automation

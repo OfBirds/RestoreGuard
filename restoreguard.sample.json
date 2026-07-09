@@ -204,6 +204,40 @@
     }
   ],
 
+  // Where each audit DELIVERS its JSON report (the same document --json prints).
+  // Every destination is optional and they all run in parallel; with the whole
+  // section absent, reports go to the per-user default folder
+  // (Documents\RestoreGuard\reports on Windows, ~/.local/share/restoreguard/reports
+  // elsewhere; override with the RESTOREGUARD_REPORTS_DIR env var). A destination
+  // that can't be written fails the run with exit 1 — delivery problems are as
+  // loud as findings. Guided setup: the `r` menu entry (live-probes every answer).
+  "reporting": {
+    // rg-report-<utc-ts>.json per audit + an atomically-replaced latest.json
+    // (the stable filename consumer scripts read). keepLast prunes all but the
+    // newest N timestamped reports; omit it to keep everything.
+    "folder": { "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+    // Any S3-compatible store (MinIO, Garage, R2, AWS) — the bucket must exist.
+    // forcePathStyle true (default) fits self-hosted stores; false = AWS's
+    // bucket-in-hostname addressing. Secrets inline (accessKey/secretKey) or,
+    // better, in root-only files via the *File variants (relative to this file).
+    "s3": {
+      "endpoint": "http://192.168.1.10:9000",
+      "bucket": "backups",
+      "prefix": "restoreguard/",
+      "region": "us-east-1",
+      "forcePathStyle": true,
+      "accessKeyFile": "/etc/restoreguard/s3.access",
+      "secretKeyFile": "/etc/restoreguard/s3.secret"
+    },
+    // One document per report — history becomes queryable (by generatedAt,
+    // overall, findings.ruleId, ...). connectionString or connectionStringFile.
+    "mongo": {
+      "connectionStringFile": "/etc/restoreguard/mongo.uri",
+      "database": "restoreguard",
+      "collection": "reports"
+    }
+  },
+
   // Known exceptions with reasons + dates — a JSON list of entries like:
   //   { "host": "mydockerhost", "service": "myapp-staging-postgres-1",
   //     "ruleId": "db-backup/uncovered", "reason": "staging data is disposable",
