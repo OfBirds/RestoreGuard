@@ -220,7 +220,7 @@ public class WizardTranscriptTests
 
     /// <summary>Strips the temp directory out of the dialogue so transcripts are
     /// identical across machines and operating systems.</summary>
-    private static string Sanitize(string text, string tempDir) => text
+    internal static string Sanitize(string text, string tempDir) => text
         .Replace(tempDir + Path.DirectorySeparatorChar, "")
         .Replace(tempDir, ".")
         .ReplaceLineEndings("\n");
@@ -232,5 +232,103 @@ public class WizardTranscriptTests
             dir = dir.Parent;
         return dir?.FullName
             ?? throw new InvalidOperationException("Could not locate the repo root (RestoreGuard.slnx).");
+    }
+
+    // Shared with the reporting-wizard transcript below.
+    internal static string LocateRepoRoot() => RepoRoot();
+}
+
+/// <summary>
+/// Same golden-file discipline as the first-run wizard, for the report-destinations
+/// wizard (the `r` menu entry). Its live probe is a real write to each destination;
+/// here it's simulated OK so the transcript is deterministic. Pins the default
+/// reports folder via the env var (otherwise the "Enter = &lt;default&gt;" prompt text
+/// would differ per machine) — hence the reports-env collection.
+/// </summary>
+[Collection("reports-env")]
+public class ReportingWizardTranscriptTests
+{
+    [Fact]
+    public async Task Transcript_MatchesCommittedGoldenFile()
+    {
+        var generated = await GenerateAsync();
+        var path = Path.Combine(WizardTranscriptTests.LocateRepoRoot(),
+            "docs", "wizard-transcripts", "04-reporting-destinations.txt");
+
+        if (Environment.GetEnvironmentVariable("RG_UPDATE_TRANSCRIPTS") == "1")
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, generated);
+            return;
+        }
+
+        Assert.True(File.Exists(path),
+            $"Missing transcript {path} — regenerate with: bash scripts/update-wizard-transcripts.sh");
+        Assert.Equal(File.ReadAllText(path).ReplaceLineEndings("\n"), generated);
+    }
+
+    private static async Task<string> GenerateAsync()
+    {
+        // Pin the default reports folder so the prompt text is machine-independent.
+        var originalReportsDir = Environment.GetEnvironmentVariable(ReportPublisher.ReportsDirEnvVar);
+        Environment.SetEnvironmentVariable(ReportPublisher.ReportsDirEnvVar,
+            "/home/you/.local/share/restoreguard/reports");
+        var dir = Directory.CreateTempSubdirectory("rg-transcript-reporting");
+        try
+        {
+            // The reporting wizard EDITS an existing config, so seed a minimal one.
+            var configPath = Path.Combine(dir.FullName, "restoreguard.json");
+            File.WriteAllText(configPath, "{\n  \"dockerHosts\": [ { \"alias\": \"nas\" } ]\n}\n");
+
+            string[] answers =
+            [
+                "y", "/var/lib/restoreguard/reports", "30",              // folder: on, path, keep newest 30
+                "y", "http://192.168.1.10:9000", "backups", "rg-reports/", // s3: on, endpoint, bucket, prefix
+                "", "n",                                                // region default; not AWS -> path-style
+                "/etc/restoreguard/s3.access", "/etc/restoreguard/s3.secret", // both keys from files
+                "y", "", "mongodb://192.168.1.11:27017",                // mongo: on, no file -> inline conn string
+                "", "",                                                 // database + collection defaults
+            ];
+
+            var dialogue = new StringWriter();
+            var probed = new List<string>();
+            await ReportingWizard.ConfigureAsync(configPath,
+                new WizardIO(new EchoReader(answers, dialogue), dialogue),
+                sink =>
+                {
+                    probed.Add(sink.Description);
+                    return Task.FromResult((true, "write access verified"));
+                });
+
+            var sb = new StringBuilder();
+            sb.AppendLine("=== Wizard transcript: Report destinations (the `r` menu entry) ===");
+            sb.AppendLine();
+            sb.AppendLine("GENERATED FILE - DO NOT EDIT. Regenerate after any wizard change:");
+            sb.AppendLine("  bash scripts/update-wizard-transcripts.sh");
+            sb.AppendLine("(enforced by ReportingWizardTranscriptTests; user answers appear as «answer».)");
+            sb.AppendLine();
+            sb.AppendLine("Configures all three destinations (folder, S3, MongoDB). S3 secrets go to");
+            sb.AppendLine("root-only files; the Mongo connection string is entered inline. Every live");
+            sb.AppendLine("probe here is a simulated OK — the real wizard write-tests each destination");
+            sb.AppendLine("(folder write, S3 put+delete, Mongo ping) before accepting it.");
+            sb.AppendLine();
+            sb.AppendLine("--------------------------------- dialogue ----------------------------------");
+            sb.AppendLine(WizardTranscriptTests.Sanitize(dialogue.ToString(), dir.FullName).TrimEnd('\n'));
+            sb.AppendLine("-------------------------------------------------------------------------------");
+            sb.AppendLine();
+            sb.AppendLine("=== destinations live-probed, in order ===");
+            foreach (var (d, i) in probed.Select((d, i) => (d, i)))
+                sb.AppendLine($"{i + 1,3}. {d}");
+            sb.AppendLine();
+            sb.AppendLine("=== resulting restoreguard.json ===");
+            sb.AppendLine(File.ReadAllText(configPath).ReplaceLineEndings("\n").TrimEnd('\n'));
+
+            return sb.ToString().ReplaceLineEndings("\n");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(ReportPublisher.ReportsDirEnvVar, originalReportsDir);
+            dir.Delete(recursive: true);
+        }
     }
 }
