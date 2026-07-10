@@ -21,14 +21,20 @@ public static class ReportingWizard
         if (config is null)
             return;
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
-        var existing = config.Reporting;
+        // Load whatever is currently configured (from the separate file or inline).
+        var existing = config.LoadReporting(configDir, []).Config;
+        // The self-contained destinations file the wizard writes and HCC can read.
+        const string reportingFileName = "reporting.json";
+        var reportingPath = Path.Combine(configDir, reportingFileName);
 
         io.WriteLine();
         io.WriteLine("--- Report destinations (each audit delivers its JSON report to ALL of these) ---");
         io.WriteLine(existing is null
             ? $"Currently: none configured — reports go to the default folder {ReportPublisher.DefaultFolder()}"
             : "Currently: " + DescribeSinks(existing));
-        io.WriteLine("Answer the three sections below; what you skip is removed.");
+        io.WriteLine($"These go in their own file ({reportingFileName}) so another tool — e.g. HCC —");
+        io.WriteLine("can read the same file and pull the reports back. Answer the three sections;");
+        io.WriteLine("what you skip is removed.");
 
         var folder = await ConfigureFolderAsync(io, existing?.Folder, configDir, probe);
         var s3 = await ConfigureS3Async(io, existing?.S3, configDir, probe);
@@ -37,15 +43,35 @@ public static class ReportingWizard
         var reporting = folder is null && s3 is null && mongo is null
             ? null
             : new ReportingConfig(folder, s3, mongo);
-        File.WriteAllText(configPath, JsonSerializer.Serialize(
-            config with { Reporting = reporting }, InteractiveMode.WizardJson));
+
+        // The main config only POINTS at the destinations file (never inlines them),
+        // so the destinations file stays a standalone, shareable artifact.
+        if (reporting is null)
+        {
+            if (File.Exists(reportingPath))
+                File.Delete(reportingPath);
+            File.WriteAllText(configPath, JsonSerializer.Serialize(
+                config with { ReportingFile = null, Reporting = null }, InteractiveMode.WizardJson));
+        }
+        else
+        {
+            File.WriteAllText(reportingPath, JsonSerializer.Serialize(reporting, InteractiveMode.WizardJson));
+            File.WriteAllText(configPath, JsonSerializer.Serialize(
+                config with { ReportingFile = reportingFileName, Reporting = null }, InteractiveMode.WizardJson));
+        }
 
         io.WriteLine();
         io.WriteLine(reporting is null
             ? $"No destinations configured — reports go to the default folder {ReportPublisher.DefaultFolder()}."
             : $"Reports now go to: {DescribeSinks(reporting)}.");
-        io.WriteLine($"Wrote {configPath}. Scripts can read the destination from its \"reporting\" section");
-        io.WriteLine("(a folder destination always keeps a stable latest.json for easy consumption).");
+        io.WriteLine(reporting is null
+            ? $"Wrote {configPath} (removed the reporting pointer)."
+            : $"Wrote {reportingPath} (the destinations) and pointed {Path.GetFileName(configPath)} at it via");
+        if (reporting is not null)
+        {
+            io.WriteLine($"\"reportingFile\": \"{reportingFileName}\". Hand that same file to HCC to read reports back;");
+            io.WriteLine("a folder destination always keeps a stable latest.json for easy consumption.");
+        }
     }
 
     private static string DescribeSinks(ReportingConfig r)

@@ -65,28 +65,32 @@ changes are additive only, so scripts written today keep working:
 * `suppressedFindings` and `activeSuppressions` are always included — the JSON
   shows what was silenced, same as the text report.
 
-== Report destinations: don't parse stdout, read a destination
+== Report destinations: read the shared `reporting.json`, not stdout
 
 Redirecting stdout works, but the audit already *persists* every report by
 itself: to a folder (with a stable `latest.json`), an S3-compatible bucket,
-and/or a MongoDB collection — see the
-xref:configuration.adoc#_reporting_where_audit_reports_are_delivered[`reporting`
-section]. With nothing configured, reports land in the per-user default folder
-(`Documents\RestoreGuard\reports` on Windows,
-`~/.local/share/restoreguard/reports` elsewhere). A consumer script should
-read the destination *from the config* instead of hard-coding paths — then
-reconfiguring RestoreGuard never breaks the script:
+and/or a MongoDB collection. Those destinations live in a standalone
+`reporting.json` (the main config just points at it via `reportingFile`) — see
+the xref:configuration.adoc#reporting[`reportingFile` section]. That file is
+self-contained *on purpose*: a consumer reads the same `reporting.json`,
+connects to the same destination, and pulls the reports RestoreGuard wrote —
+which is exactly how HCC consumes them. Read the destination *from that file*
+rather than hard-coding paths, so reconfiguring RestoreGuard never breaks the
+consumer:
 
 [source,shell]
 ----
-CONFIG=/etc/restoreguard/restoreguard.json
-REPORT_DIR=$(jq -r '.reporting.folder.path // empty' "$CONFIG")
+REPORTING=/etc/restoreguard/reporting.json
+REPORT_DIR=$(jq -r '.folder.path // empty' "$REPORTING")
 REPORT="${REPORT_DIR:-$HOME/.local/share/restoreguard/reports}/latest.json"
 ----
 
-`latest.json` is replaced atomically (temp file + rename), so a reader or file
-watcher never sees a half-written report. A destination that can't be written
-turns the run into exit `1` — delivery failures are as loud as findings.
+(For the S3 or MongoDB destinations, `reporting.json` likewise carries the
+endpoint/bucket or connection string the consumer needs — the same fields
+RestoreGuard wrote with.) `latest.json` is replaced atomically (temp file +
+rename), so a reader or file watcher never sees a half-written report. A
+destination that can't be written turns the run into exit `1` — delivery
+failures are as loud as findings.
 
 == Nightly audit with cron
 

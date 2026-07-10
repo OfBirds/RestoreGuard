@@ -288,11 +288,30 @@ so probe its host instead.
 
 *Host needs:* root (raw device access), `smartmontools` installed.
 
-== `reporting` — where audit reports are delivered
+[#reporting]
+== `reportingFile` — where audit reports are delivered (a shared, standalone file)
+
+Report destinations live in their *own* file (the wizard writes `reporting.json`),
+and the main config just points at it:
 
 [source,json]
 ----
-"reporting": {
+"reportingFile": "reporting.json"
+----
+
+The point of the separate file is *sharing*: the same `reporting.json` is a
+self-contained connection layout, so a second tool — for example HCC — can read
+the exact same file, connect to the same folder/bucket/database, and *pull back*
+the reports RestoreGuard *wrote* there. RestoreGuard writes; another tool reads;
+one file describes the connection for both. The path is relative to the main
+config. (An inline `reporting` section is still accepted as a legacy form, but
+the wizard writes the separate file — use `reportingFile` for anything new; set
+one or the other, not both.)
+
+.reporting.json — the destinations file
+[source,json]
+----
+{
   "folder": { "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
   "s3": {
     "endpoint": "http://192.168.1.10:9000",
@@ -312,9 +331,9 @@ so probe its host instead.
 ----
 
 Every audit delivers its JSON report (the same document `--json` prints) to
-*all* configured destinations, in parallel. Each destination is optional; with
-the whole section absent, reports go to the per-user default folder
-(`Documents\RestoreGuard\reports` on Windows,
+*all* destinations in the file, in parallel. Each is optional; with no
+`reportingFile` (and no inline `reporting`), reports go to the per-user default
+folder (`Documents\RestoreGuard\reports` on Windows,
 `~/.local/share/restoreguard/reports` elsewhere — overridable with the
 `RESTOREGUARD_REPORTS_DIR` environment variable). A destination that can't be
 written fails the run with exit code `1` — a report that silently went nowhere
@@ -326,19 +345,22 @@ answer; `doctor` re-verifies them on every preflight.
   atomically-replaced `latest.json`, the stable filename scripts should read.
   Files appear via temp-file + rename, so a watcher never sees a half-written
   report. `path` is optional (Enter = the default folder) and resolves
-  relative to the config file; `keepLast` prunes all but the newest N
+  relative to the reporting file; `keepLast` prunes all but the newest N
   timestamped reports (omit to keep everything).
 * `s3` — any S3-compatible store (MinIO, Garage, R2, AWS). Puts the
   timestamped key and `<prefix>latest.json` into an *existing* bucket.
   `forcePathStyle: true` (the default) is what self-hosted stores expect; set
   it `false` for AWS's bucket-in-hostname addressing. Credentials go inline
   (`accessKey`/`secretKey`) or — better — in root-only files via the `\*File`
-  variants (relative paths resolve against the config file's directory).
+  variants (relative paths resolve against the reporting file's directory, so
+  the file stays portable to another tool).
 * `mongo` — inserts each report as one document, so history is queryable
   (`db.reports.find({overall:"red"})`, by `generatedAt`, by
   `findings.ruleId`, ...). `connectionString` or `connectionStringFile`;
   `database`/`collection` default to `restoreguard`/`reports`.
+  MongoDB-wire-compatible servers (e.g. FerretDB) work here unchanged.
 
+The full annotated destinations file ships as `reporting.sample.json`.
 *Not covered by the first-run wizard* — configure with the `r` menu entry or
 by hand.
 

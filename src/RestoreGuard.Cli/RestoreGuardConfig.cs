@@ -19,6 +19,12 @@ public sealed record RestoreGuardConfig(
     IReadOnlyList<RestoreGuard.Providers.Zfs.ZfsReplicationConfig>? ZfsReplications = null,
     IReadOnlyList<RestoreGuard.Providers.Offsite.OffsiteJobConfig>? OffsiteJobs = null,
     IReadOnlyList<RestoreGuard.Providers.Sqlite.SqliteBackupDirConfig>? SqliteBackupDirs = null,
+    // Report destinations live in their OWN self-contained file (default the wizard
+    // writes: reporting.json) so the SAME file can be handed to another tool — e.g.
+    // HCC reads it to connect to the exact same folder/bucket/DB and pull the reports
+    // RestoreGuard wrote there. Path relative to this config. The inline `Reporting`
+    // section still works but is the legacy form; the wizard writes the file.
+    string? ReportingFile = null,
     ReportingConfig? Reporting = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -36,7 +42,10 @@ public sealed record RestoreGuardConfig(
     public static RestoreGuardConfig? LoadValidated(string path)
     {
         var config = Load(path);
-        var errors = config.Validate();
+        var errors = config.Validate().ToList();
+        // Validate the separate reporting file too (it isn't reachable from the
+        // parameterless Validate(), which has no directory to resolve it against).
+        config.LoadReporting(Path.GetDirectoryName(Path.GetFullPath(path))!, errors);
         if (errors.Count == 0)
             return config;
 
@@ -45,6 +54,44 @@ public sealed record RestoreGuardConfig(
             Console.Error.WriteLine($"  - {e}");
         Console.Error.WriteLine("Fix the file by hand, or run `restoreguard init` to redo guided setup.");
         return null;
+    }
+
+    /// <summary>
+    /// The report destinations, resolved from either <c>reportingFile</c> (the
+    /// preferred, self-contained form — the same file HCC reads to pull reports back)
+    /// or the inline <c>reporting</c> section. <see cref="ResolvedReporting.SecretsBaseDir"/>
+    /// is the directory the sink's <c>*File</c> secrets resolve against — for a
+    /// separate file that is the FILE's own directory, so the file is portable to HCC;
+    /// for the inline form it is the config's directory. Adds any problems to
+    /// <paramref name="errors"/>.
+    /// </summary>
+    public ResolvedReporting LoadReporting(string configDir, List<string> errors)
+    {
+        if (ReportingFile is null)
+            return new ResolvedReporting(Reporting, configDir); // inline: Validate() already checked it
+
+        if (Reporting is not null)
+            errors.Add("Set reportingFile OR an inline reporting section, not both.");
+
+        var path = Path.IsPathRooted(ReportingFile) ? ReportingFile : Path.Combine(configDir, ReportingFile);
+        if (!File.Exists(path))
+        {
+            errors.Add($"reportingFile not found: {path}");
+            return new ResolvedReporting(null, configDir);
+        }
+
+        ReportingConfig? reporting;
+        try
+        {
+            reporting = JsonSerializer.Deserialize<ReportingConfig>(File.ReadAllText(path), JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            errors.Add($"reportingFile {path} is not valid JSON: {ex.Message}");
+            return new ResolvedReporting(null, configDir);
+        }
+        reporting?.Validate(errors);
+        return new ResolvedReporting(reporting, Path.GetDirectoryName(Path.GetFullPath(path))!);
     }
 
     /// <summary>Catches configs that would produce garbage SSH errors mid-run —

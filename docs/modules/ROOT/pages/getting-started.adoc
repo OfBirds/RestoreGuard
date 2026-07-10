@@ -102,7 +102,7 @@ shows an example answer. Two things make it forgiving:
 The wizard writes `restoreguard.json`. After that, the bare `restoreguard`
 command shows a small menu instead: run the audit, run the doctor, print JSON,
 revisit setup, choose where reports are saved (`r` — see
-xref:configuration.adoc#_reporting_where_audit_reports_are_delivered[reporting]),
+xref:configuration.adoc#reporting[reporting]),
 quit.
 
 [TIP]
@@ -111,7 +111,7 @@ The `r` menu entry configures *report destinations* — a folder, an
 S3-compatible bucket, and/or MongoDB — and live-probes each one (a write test)
 as you answer, the same way the setup wizard probes hosts. Skip it and every
 audit still saves its JSON report to a per-user default folder. See the
-xref:configuration.adoc#_reporting_where_audit_reports_are_delivered[`reporting`
+xref:configuration.adoc#reporting[`reporting`
 configuration] and xref:automation.adoc[Automation].
 ====
 

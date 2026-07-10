@@ -10,10 +10,12 @@ trap 'rm -rf "$ROOT"' EXIT
 mkdir -p "$ROOT/usr/bin" "$ROOT/usr/share/doc/restoreguard" "$ROOT/DEBIAN"
 install -m 755 "$BIN" "$ROOT/usr/bin/restoreguard"
 
-if [ -f "$(dirname "$0")/../restoreguard.sample.json" ]; then
-  install -m 644 "$(dirname "$0")/../restoreguard.sample.json" \
-    "$ROOT/usr/share/doc/restoreguard/restoreguard.sample.json"
-fi
+for sample in restoreguard.sample.json reporting.sample.json; do
+  if [ -f "$(dirname "$0")/../$sample" ]; then
+    install -m 644 "$(dirname "$0")/../$sample" \
+      "$ROOT/usr/share/doc/restoreguard/$sample"
+  fi
+done
 
 cat > "$ROOT/DEBIAN/control" <<EOF
 Package: restoreguard

@@ -1,0 +1,40 @@
+{
+  // RestoreGuard report destinations — a STANDALONE file (the main config points at
+  // it via "reportingFile": "reporting.json"). It is self-contained on purpose: hand
+  // this same file to another tool — e.g. HCC — and it can connect to the exact same
+  // destinations and READ the reports RestoreGuard WROTE. Every destination is
+  // optional and they all run in parallel. A destination that can't be written fails
+  // the audit with exit 1 — delivery problems are as loud as findings. The wizard
+  // (`r` in the menu) writes this file for you, live-probing every answer.
+  // Comments and trailing commas are allowed.
+
+  // A folder: rg-report-<utc-ts>.json per audit + an atomically-replaced latest.json
+  // (the stable filename a consumer reads). keepLast prunes all but the newest N
+  // timestamped reports; omit it to keep everything. A relative path resolves against
+  // THIS file's directory.
+  "folder": { "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+
+  // Any S3-compatible store (MinIO, Garage, R2, AWS) — the bucket must already exist.
+  // forcePathStyle true (default) fits self-hosted stores; false = AWS's
+  // bucket-in-hostname addressing. Secrets go inline (accessKey/secretKey) or — better
+  // — in root-only files via the *File variants (relative to THIS file's directory, so
+  // the file stays portable to HCC).
+  "s3": {
+    "endpoint": "http://192.168.1.10:9000",
+    "bucket": "backups",
+    "prefix": "restoreguard/",
+    "region": "us-east-1",
+    "forcePathStyle": true,
+    "accessKeyFile": "/etc/restoreguard/s3.access",
+    "secretKeyFile": "/etc/restoreguard/s3.secret"
+  },
+
+  // MongoDB: one document per report — history becomes queryable (by generatedAt,
+  // overall, findings.ruleId, ...). connectionString inline, or connectionStringFile.
+  // MongoDB-wire-compatible servers (e.g. FerretDB) work here unchanged.
+  "mongo": {
+    "connectionStringFile": "/etc/restoreguard/mongo.uri",
+    "database": "restoreguard",
+    "collection": "reports"
+  }
+}

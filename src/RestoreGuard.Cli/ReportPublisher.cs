@@ -27,15 +27,26 @@ public static class ReportPublisher
 
     /// <summary>The configured sinks; with none configured, the default folder —
     /// an audit always persists its report somewhere predictable.</summary>
+    /// <summary>Resolves the reporting config (separate reportingFile or inline) and
+    /// builds its sinks — the entry point audit and doctor use.</summary>
     public static IReadOnlyList<IReportSink> BuildSinks(RestoreGuardConfig config, string configDir)
     {
+        var resolved = config.LoadReporting(configDir, []);
+        return BuildSinks(resolved.Config, resolved.SecretsBaseDir);
+    }
+
+    /// <summary>Builds the sinks for an already-resolved reporting config. secretsBaseDir
+    /// is where each sink's <c>*File</c> secret and relative folder path resolve from —
+    /// the reporting file's own directory, so the same file works for HCC.</summary>
+    public static IReadOnlyList<IReportSink> BuildSinks(ReportingConfig? reporting, string secretsBaseDir)
+    {
         var sinks = new List<IReportSink>();
-        if (config.Reporting?.Folder is { } folder)
-            sinks.Add(new FolderReportSink(ResolveFolder(folder.Path, configDir), folder.KeepLast));
-        if (config.Reporting?.S3 is { } s3)
-            sinks.Add(new S3ReportSink(s3, configDir));
-        if (config.Reporting?.Mongo is { } mongo)
-            sinks.Add(new MongoReportSink(mongo, configDir));
+        if (reporting?.Folder is { } folder)
+            sinks.Add(new FolderReportSink(ResolveFolder(folder.Path, secretsBaseDir), folder.KeepLast));
+        if (reporting?.S3 is { } s3)
+            sinks.Add(new S3ReportSink(s3, secretsBaseDir));
+        if (reporting?.Mongo is { } mongo)
+            sinks.Add(new MongoReportSink(mongo, secretsBaseDir));
         if (sinks.Count == 0)
             sinks.Add(new FolderReportSink(DefaultFolder(), keepLast: null));
         return sinks;

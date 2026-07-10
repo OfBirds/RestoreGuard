@@ -320,8 +320,16 @@ public class ReportingWizardTranscriptTests
             foreach (var (d, i) in probed.Select((d, i) => (d, i)))
                 sb.AppendLine($"{i + 1,3}. {d}");
             sb.AppendLine();
-            sb.AppendLine("=== resulting restoreguard.json ===");
+            sb.AppendLine("=== resulting restoreguard.json (only POINTS at the destinations) ===");
             sb.AppendLine(File.ReadAllText(configPath).ReplaceLineEndings("\n").TrimEnd('\n'));
+
+            var reportingPath = Path.Combine(dir.FullName, "reporting.json");
+            if (File.Exists(reportingPath))
+            {
+                sb.AppendLine();
+                sb.AppendLine("=== resulting reporting.json (the standalone file HCC also reads) ===");
+                sb.AppendLine(File.ReadAllText(reportingPath).ReplaceLineEndings("\n").TrimEnd('\n'));
+            }
 
             return sb.ToString().ReplaceLineEndings("\n");
         }

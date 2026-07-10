@@ -49,7 +49,13 @@ public class ReportingWizardTests : IDisposable
         Assert.Equal("nas", Assert.Single(config.DockerHosts).Alias);
         Assert.Equal("suppressions.json", config.SuppressionsFile);
 
-        var reporting = config.Reporting!;
+        // Destinations live in a SEPARATE reporting.json; the main config only points
+        // at it (never inlines them), so the file is a standalone artifact HCC can read.
+        Assert.Equal("reporting.json", config.ReportingFile);
+        Assert.Null(config.Reporting);
+        Assert.True(File.Exists(Path.Combine(_dir.FullName, "reporting.json")));
+
+        var reporting = config.LoadReporting(_dir.FullName, []).Config!;
         Assert.Equal(new FolderSinkConfig("/var/lib/rg/reports", 30), reporting.Folder);
         Assert.Equal(new S3SinkConfig("http://192.168.1.10:9000", "backups", "rg/", "us-east-1",
             ForcePathStyle: true, AccessKeyFile: "/etc/rg/s3.access", SecretKeyFile: "/etc/rg/s3.secret"), reporting.S3);
@@ -66,8 +72,10 @@ public class ReportingWizardTests : IDisposable
     {
         var output = await RunAsync(probeOk: true, "n", "n", "n");
 
-        Assert.Null(RestoreGuardConfig.Load(ConfigPath).Reporting);
-        Assert.DoesNotContain("\"reporting\"", File.ReadAllText(ConfigPath));
+        var config = RestoreGuardConfig.Load(ConfigPath);
+        Assert.Null(config.Reporting);
+        Assert.Null(config.ReportingFile);
+        Assert.False(File.Exists(Path.Combine(_dir.FullName, "reporting.json")));
         Assert.Contains("default folder", output);
         Assert.Empty(_probed);
     }
@@ -94,9 +102,25 @@ public class ReportingWizardTests : IDisposable
             "y",                                          // keep anyway despite failed probe
             "n");                                         // mongo off
 
-        var s3 = RestoreGuardConfig.Load(ConfigPath).Reporting!.S3!;
+        var s3 = RestoreGuardConfig.Load(ConfigPath).LoadReporting(_dir.FullName, []).Config!.S3!;
         Assert.Equal(("http://h:9000", "restoreguard", "minio", "secret"),
             (s3.Endpoint, s3.Bucket, s3.AccessKey, s3.SecretKey));
         Assert.Contains("PROBLEM — simulated failure", output);
+    }
+
+    [Fact]
+    public async Task ReconfiguringReadsBackTheSeparateFile()
+    {
+        // First run configures a folder; second run must see it as "existing" (loaded
+        // from reporting.json, not the main config) and preserve it when only S3 changes.
+        await RunAsync(probeOk: true, "y", "/var/lib/rg/reports", "", "n", "n");
+        _probed.Clear();
+
+        await RunAsync(probeOk: true,
+            "y", "", "",                                  // folder: keep, default path... actually re-enter
+            "n", "n");                                    // s3 off, mongo off
+
+        var reporting = RestoreGuardConfig.Load(ConfigPath).LoadReporting(_dir.FullName, []).Config!;
+        Assert.NotNull(reporting.Folder);
     }
 }

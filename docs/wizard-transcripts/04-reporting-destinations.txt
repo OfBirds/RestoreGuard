@@ -13,7 +13,9 @@ probe here is a simulated OK — the real wizard write-tests each destination
 
 --- Report destinations (each audit delivers its JSON report to ALL of these) ---
 Currently: none configured — reports go to the default folder /home/you/.local/share/restoreguard/reports
-Answer the three sections below; what you skip is removed.
+These go in their own file (reporting.json) so another tool — e.g. HCC —
+can read the same file and pull the reports back. Answer the three sections;
+what you skip is removed.
 
 Save reports to a folder? [y/N]: «y»
   folder path (Enter = /home/you/.local/share/restoreguard/reports): «/var/lib/restoreguard/reports»
@@ -38,8 +40,9 @@ Insert reports into MongoDB? [y/N]: «y»
   checking (ping) ... OK — write access verified
 
 Reports now go to: folder /var/lib/restoreguard/reports, s3 http://192.168.1.10:9000/backups, mongo restoreguard.reports.
-Wrote restoreguard.json. Scripts can read the destination from its "reporting" section
-(a folder destination always keeps a stable latest.json for easy consumption).
+Wrote reporting.json (the destinations) and pointed restoreguard.json at it via
+"reportingFile": "reporting.json". Hand that same file to HCC to read reports back;
+a folder destination always keeps a stable latest.json for easy consumption.
 -------------------------------------------------------------------------------
 
 === destinations live-probed, in order ===
@@ -47,7 +50,7 @@ Wrote restoreguard.json. Scripts can read the destination from its "reporting" s
   2. s3 http://192.168.1.10:9000/backups
   3. mongo restoreguard.reports
 
-=== resulting restoreguard.json ===
+=== resulting restoreguard.json (only POINTS at the destinations) ===
 {
   "dockerHosts": [
     {
@@ -56,24 +59,27 @@ Wrote restoreguard.json. Scripts can read the destination from its "reporting" s
     }
   ],
   "pbsMaxSnapshotAgeHours": 0,
-  "reporting": {
-    "folder": {
-      "path": "/var/lib/restoreguard/reports",
-      "keepLast": 30
-    },
-    "s3": {
-      "endpoint": "http://192.168.1.10:9000",
-      "bucket": "backups",
-      "prefix": "rg-reports/",
-      "region": "us-east-1",
-      "forcePathStyle": true,
-      "accessKeyFile": "/etc/restoreguard/s3.access",
-      "secretKeyFile": "/etc/restoreguard/s3.secret"
-    },
-    "mongo": {
-      "connectionString": "mongodb://192.168.1.11:27017",
-      "database": "restoreguard",
-      "collection": "reports"
-    }
+  "reportingFile": "reporting.json"
+}
+
+=== resulting reporting.json (the standalone file HCC also reads) ===
+{
+  "folder": {
+    "path": "/var/lib/restoreguard/reports",
+    "keepLast": 30
+  },
+  "s3": {
+    "endpoint": "http://192.168.1.10:9000",
+    "bucket": "backups",
+    "prefix": "rg-reports/",
+    "region": "us-east-1",
+    "forcePathStyle": true,
+    "accessKeyFile": "/etc/restoreguard/s3.access",
+    "secretKeyFile": "/etc/restoreguard/s3.secret"
+  },
+  "mongo": {
+    "connectionString": "mongodb://192.168.1.11:27017",
+    "database": "restoreguard",
+    "collection": "reports"
   }
 }

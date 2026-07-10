@@ -9,14 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Report destinations (`reporting` config section)**: every audit now *delivers* its
+- **Report destinations (a standalone `reporting.json`)**: every audit now *delivers* its
   JSON report instead of only printing it — to a **folder** (timestamped
   `rg-report-<utc-ts>.json` + atomically-replaced `latest.json`, optional `keepLast`
   pruning), an **S3-compatible bucket** (MinIO/Garage/R2/AWS; hand-rolled SigV4, no SDK),
   and/or a **MongoDB collection** (one queryable document per report) — any combination,
-  in parallel. With nothing configured, reports go to a per-user default folder
+  in parallel. The destinations live in their **own self-contained file** (the main
+  config points at it via `reportingFile`, like `suppressionsFile`), so a second tool —
+  e.g. HCC — can read the *same* file, connect to the same destination, and pull the
+  reports back. Secret `*File` paths resolve against the reporting file's own directory,
+  keeping it portable. With nothing configured, reports go to a per-user default folder
   (`Documents\RestoreGuard\reports` on Windows, `~/.local/share/restoreguard/reports`
-  elsewhere; `RESTOREGUARD_REPORTS_DIR` overrides). Secrets support the `*File` pattern.
+  elsewhere; `RESTOREGUARD_REPORTS_DIR` overrides). The annotated destinations file
+  ships as `reporting.sample.json`.
 - **`r` menu entry — reporting wizard**: interactive destination setup that live-probes
   every answer (folder write test, S3 put+delete round-trip, MongoDB ping) and rewrites
   only the `reporting` section of the config.

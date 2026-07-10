@@ -1,10 +1,19 @@
 namespace RestoreGuard.Cli;
 
+/// <summary>The reporting config plus the directory its <c>*File</c> secrets resolve
+/// against (the reporting file's own directory when loaded from reportingFile, so the
+/// file is self-contained and portable to another tool like HCC).</summary>
+public sealed record ResolvedReporting(ReportingConfig? Config, string SecretsBaseDir);
+
 /// <summary>
 /// Where audit reports go. Every sink is optional and they all run in parallel;
 /// with no sink configured the report lands in the per-user default folder
 /// (Documents\RestoreGuard\reports on Windows, ~/.local/share/restoreguard/reports
 /// elsewhere) so a report always exists somewhere a script can pick it up.
+///
+/// This is the shape of the standalone reporting file (reporting.json): it is
+/// self-contained so a second tool — e.g. HCC — can read the SAME file, connect to
+/// the SAME destinations, and pull the reports RestoreGuard wrote there.
 /// </summary>
 public sealed record ReportingConfig(
     FolderSinkConfig? Folder = null,
