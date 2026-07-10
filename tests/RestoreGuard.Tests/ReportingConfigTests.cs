@@ -49,6 +49,15 @@ public class ReportingConfigValidationTests
     }
 
     [Fact]
+    public void DuplicateConnectionIds_Rejected()
+    {
+        var errors = Validate(new ReportingConfig(
+            new FolderSinkConfig(Id: "dup"),
+            new S3SinkConfig("http://h:9000", "b", AccessKey: "k", SecretKey: "s", Id: "dup")));
+        Assert.Contains(errors, e => e.Contains("duplicate connection id 'dup'"));
+    }
+
+    [Fact]
     public void Folder_KeepLastMustBePositive()
     {
         var errors = Validate(new ReportingConfig(Folder: new FolderSinkConfig(KeepLast: 0)));

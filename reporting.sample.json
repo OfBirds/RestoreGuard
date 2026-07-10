@@ -8,25 +8,21 @@
   // (`r` in the menu) writes this file for you, live-probing every answer.
   // Comments and trailing commas are allowed.
 
-  // Every destination carries an "id" — a stable CONNECTION ID. RestoreGuard stamps
-  // the ids it delivered to into each report's own metadata ("destinations": [...]),
-  // so a report is self-describing about which connection it lives in — that's the
-  // link a reader (e.g. HCC) uses to match a report back to its entry here. id is
-  // optional; if omitted the sink derives one (folder, s3:<bucket>, mongo:<db>.<coll>).
+  // Each destination has: "id" (any string, unique; the wizard auto-generates a GUID,
+  // edit it to whatever you like), and "enabled" (default true — RG writes to all
+  // enabled destinations). RG stamps each report with its target id + a content hash,
+  // so a reader (HCC) can tell where/when a report was saved and dedup across targets.
 
-  // A folder: rg-report-<utc-ts>.json per audit + an atomically-replaced latest.json
-  // (the stable filename a consumer reads). keepLast prunes all but the newest N
-  // timestamped reports; omit it to keep everything. A relative path resolves against
-  // THIS file's directory.
-  "folder": { "id": "local-spool", "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+  // A folder: rg-report-<utc-ts>.json per audit + an atomically-replaced latest.json.
+  // keepLast prunes all but the newest N; relative path resolves against THIS file's dir.
+  "folder": { "id": "local-spool", "enabled": true, "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
 
   // Any S3-compatible store (MinIO, Garage, R2, AWS) — the bucket must already exist.
-  // forcePathStyle true (default) fits self-hosted stores; false = AWS's
-  // bucket-in-hostname addressing. Secrets go inline (accessKey/secretKey) or — better
-  // — in root-only files via the *File variants (relative to THIS file's directory, so
-  // the file stays portable to HCC).
+  // forcePathStyle false = AWS virtual-host addressing. Secrets inline or via *File
+  // (relative to THIS file's dir, so the file stays portable to HCC).
   "s3": {
     "id": "offsite-minio",
+    "enabled": true,
     "endpoint": "http://192.168.1.10:9000",
     "bucket": "backups",
     "prefix": "restoreguard/",
@@ -36,11 +32,10 @@
     "secretKeyFile": "/etc/restoreguard/s3.secret"
   },
 
-  // MongoDB: one document per report — history becomes queryable (by generatedAt,
-  // overall, findings.ruleId, ...). connectionString inline, or connectionStringFile.
-  // MongoDB-wire-compatible servers (e.g. FerretDB) work here unchanged.
+  // MongoDB: one document per report. MongoDB-wire-compatible servers (FerretDB) work here.
   "mongo": {
     "id": "mongo-main",
+    "enabled": true,
     "connectionStringFile": "/etc/restoreguard/mongo.uri",
     "database": "restoreguard",
     "collection": "reports"

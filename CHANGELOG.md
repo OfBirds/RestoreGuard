@@ -22,12 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`Documents\RestoreGuard\reports` on Windows, `~/.local/share/restoreguard/reports`
   elsewhere; `RESTOREGUARD_REPORTS_DIR` overrides). The annotated destinations file
   ships as `reporting.sample.json`.
-- **Connection ids + report provenance**: each destination in `reporting.json` carries an
-  `id` (a stable connection id), and RestoreGuard stamps the ids it delivered to into each
-  report's own metadata — a new `destinations` array in the `--json` report (additive;
-  `schemaVersion` stays 1). A report is now self-describing about which connection it lives
-  in, so a reader (HCC) can match a report it pulled back to its entry in `reporting.json`.
-  `id` defaults to a type-derived value (`folder`, `s3:<bucket>`, `mongo:<db>.<coll>`).
+- **Per-destination `id` + `enabled`, and report `target`/`hash` metadata**: each
+  destination in `reporting.json` has an `id` (any unique string; the wizard auto-generates
+  a GUID) and `enabled` (default `true` — RG writes to all enabled destinations). Each report
+  copy is stamped with its `target` (the id it was saved to; `null` on stdout) and a `hash`
+  (SHA-256 of the report core, identical across copies) — new additive `--json` fields
+  (`schemaVersion` stays 1) that let a reader dedup a report across targets and tell where/when
+  it was saved. A duplicate `id` is rejected when `reporting.json` is read.
 - **`r` menu entry — reporting wizard**: interactive destination setup that live-probes
   every answer (folder write test, S3 put+delete round-trip, MongoDB ping) and rewrites
   only the `reporting` section of the config.

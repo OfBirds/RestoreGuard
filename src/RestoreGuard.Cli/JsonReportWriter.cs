@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using RestoreGuard.Core;
 using RestoreGuard.Core.Model;
@@ -28,19 +30,23 @@ public static class JsonReportWriter
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
+    private static readonly JsonSerializerOptions CompactOptions = new(Options) { WriteIndented = false };
+
+    /// <summary>
+    /// Serializes the report. <paramref name="target"/> is the connection id this copy is
+    /// written to (null for stdout). <c>hash</c> is the SHA-256 of the report core (every
+    /// field except <c>target</c> and <c>hash</c>), so all copies of one audit share a hash
+    /// and a reader can dedup across targets.
+    /// </summary>
     public static string Write(Report report, LabInventory inventory, IReadOnlyList<string> providerErrors,
-        IReadOnlyList<string>? destinations = null)
+        string? target = null)
     {
-        var payload = new
+        var core = new
         {
             schemaVersion = SchemaVersion,
             generatedAt = report.GeneratedAt,
             overall = report.Overall,
             partial = providerErrors.Count > 0,
-            // The connection ids this report is being delivered to (reporting.json),
-            // so a report is self-describing about where it lives — the link a reader
-            // (e.g. HCC) uses to match a report back to its destination in reporting.json.
-            destinations = destinations ?? [],
             counts = new
             {
                 services = inventory.Services.Count,
@@ -54,6 +60,11 @@ public static class JsonReportWriter
             activeSuppressions = report.ActiveSuppressions,
             providerErrors,
         };
-        return JsonSerializer.Serialize(payload, Options);
+
+        var node = JsonSerializer.SerializeToNode(core, Options)!.AsObject();
+        var hash = AwsSigV4.Sha256Hex(Encoding.UTF8.GetBytes(node.ToJsonString(CompactOptions)));
+        node["target"] = target;
+        node["hash"] = hash;
+        return node.ToJsonString(Options);
     }
 }

@@ -41,11 +41,11 @@ public static class ReportPublisher
     public static IReadOnlyList<IReportSink> BuildSinks(ReportingConfig? reporting, string secretsBaseDir)
     {
         var sinks = new List<IReportSink>();
-        if (reporting?.Folder is { } folder)
+        if (reporting?.Folder is { Enabled: true } folder)
             sinks.Add(new FolderReportSink(ResolveFolder(folder.Path, secretsBaseDir), folder.KeepLast, folder.Id));
-        if (reporting?.S3 is { } s3)
+        if (reporting?.S3 is { Enabled: true } s3)
             sinks.Add(new S3ReportSink(s3, secretsBaseDir));
-        if (reporting?.Mongo is { } mongo)
+        if (reporting?.Mongo is { Enabled: true } mongo)
             sinks.Add(new MongoReportSink(mongo, secretsBaseDir));
         if (sinks.Count == 0)
             sinks.Add(new FolderReportSink(DefaultFolder(), keepLast: null));
@@ -57,16 +57,17 @@ public static class ReportPublisher
         : Path.IsPathRooted(path) ? path
         : Path.Combine(configDir, path);
 
-    /// <summary>Publishes to every sink in parallel; narrates one line per sink
-    /// via <paramref name="progress"/> and returns how many failed.</summary>
+    /// <summary>Publishes to every sink in parallel; <paramref name="render"/> produces the
+    /// report json for each sink (so each copy carries its own target). Narrates one line
+    /// per sink and returns how many failed.</summary>
     public static async Task<int> PublishAsync(
-        IReadOnlyList<IReportSink> sinks, string reportJson, DateTimeOffset generatedAt, Action<string> progress)
+        IReadOnlyList<IReportSink> sinks, Func<IReportSink, string> render, DateTimeOffset generatedAt, Action<string> progress)
     {
         var results = await Task.WhenAll(sinks.Select(async sink =>
         {
             try
             {
-                return (sink, Detail: await sink.PublishAsync(reportJson, generatedAt), Error: (string?)null);
+                return (sink, Detail: await sink.PublishAsync(render(sink), generatedAt), Error: (string?)null);
             }
             catch (Exception ex)
             {

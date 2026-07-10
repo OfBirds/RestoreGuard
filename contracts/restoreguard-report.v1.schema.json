@@ -35,10 +35,13 @@
       "description": "True when discovery was incomplete (one or more providerErrors); a partial run must NOT be read as a clean bill of health.",
       "type": "boolean"
     },
-    "destinations": {
-      "description": "Connection ids (from reporting.json) this report is delivered to, so a report is self-describing about which destination it lives in — the link a reader (e.g. HCC) uses to match a report back to its connection. Additive since schemaVersion 1; may be absent in reports from older RestoreGuard versions.",
-      "type": "array",
-      "items": { "type": "string" }
+    "target": {
+      "description": "The connection id (from reporting.json) this COPY of the report was written to; null for the stdout copy. Distinct per destination, so a stored report is self-describing about where it lives. Additive since schemaVersion 1.",
+      "type": ["string", "null"]
+    },
+    "hash": {
+      "description": "SHA-256 (hex) of the report core — every field EXCEPT target and hash. Identical across all copies of one audit, so a reader can dedup a report it finds in multiple targets. Additive since schemaVersion 1.",
+      "type": "string"
     },
     "counts": {
       "type": "object",

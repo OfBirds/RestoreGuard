@@ -37,6 +37,18 @@ public sealed record ReportingConfig(
 
         if (Mongo is { } mongo)
             RequireExactlyOne(errors, "reporting.mongo", "connectionString", mongo.ConnectionString, mongo.ConnectionStringFile);
+
+        var ids = EffectiveIds().ToList();
+        foreach (var dup in ids.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => g.Key))
+            errors.Add($"reporting: duplicate connection id '{dup}' — each destination needs a unique id.");
+    }
+
+    /// <summary>The connection id of each configured destination (explicit or derived).</summary>
+    public IEnumerable<string> EffectiveIds()
+    {
+        if (Folder is { } f) yield return f.Id ?? "folder";
+        if (S3 is { } s) yield return s.Id ?? $"s3:{s.Bucket}";
+        if (Mongo is { } m) yield return m.Id ?? $"mongo:{m.Database}.{m.Collection}";
     }
 
     private static void RequireExactlyOne(List<string> errors, string section, string field, string? inline, string? file)
@@ -50,42 +62,35 @@ public sealed record ReportingConfig(
     }
 }
 
-/// <summary>A local (or mounted) directory: rg-report-&lt;utc-ts&gt;.json per audit,
-/// plus latest.json atomically replaced — the file a consumer script reads.
-/// A relative path resolves against the config file's directory. <c>Id</c> is the
-/// stable connection id stamped into each report's <c>destinations</c> metadata, so a
-/// report knows which connection it lives in (defaults to "folder").</summary>
+/// <summary>A local (or mounted) directory: rg-report-&lt;utc-ts&gt;.json + latest.json.
+/// Relative path resolves against the reporting file's directory. Id defaults to "folder".</summary>
 public sealed record FolderSinkConfig(
     string? Path = null,
     int? KeepLast = null,
-    string? Id = null);
+    string? Id = null,
+    bool Enabled = true);
 
-/// <summary>Any S3-compatible object store (MinIO, Garage, R2, AWS). Secrets go
-/// inline or — better — in root-only files via the *File variants; a relative
-/// file path resolves against the config file's directory. <c>Id</c> is the
-/// connection id stamped into report metadata (defaults to "s3:&lt;bucket&gt;").</summary>
+/// <summary>Any S3-compatible store (MinIO, Garage, R2, AWS). ForcePathStyle=false for
+/// AWS virtual-host addressing. Secrets inline or via *File. Id defaults to "s3:&lt;bucket&gt;".</summary>
 public sealed record S3SinkConfig(
     string Endpoint,
     string Bucket,
     string Prefix = "restoreguard/",
     string Region = "us-east-1",
-    // Path-style (endpoint/bucket/key) is what MinIO and friends expect;
-    // false = virtual-host style (bucket.endpoint/key) for AWS-shaped setups.
     bool ForcePathStyle = true,
     string? AccessKey = null,
     string? AccessKeyFile = null,
     string? SecretKey = null,
     string? SecretKeyFile = null,
-    string? Id = null);
+    string? Id = null,
+    bool Enabled = true);
 
-/// <summary>A MongoDB collection: each report is inserted as one document
-/// (queryable by generatedAt/overall/findings). connectionStringFile keeps
-/// credentials out of this config; relative to the config file's directory. <c>Id</c>
-/// is the connection id stamped into report metadata (defaults to
-/// "mongo:&lt;database&gt;.&lt;collection&gt;").</summary>
+/// <summary>A MongoDB collection (one document per report). Id defaults to
+/// "mongo:&lt;database&gt;.&lt;collection&gt;".</summary>
 public sealed record MongoSinkConfig(
     string? ConnectionString = null,
     string? ConnectionStringFile = null,
     string Database = "restoreguard",
     string Collection = "reports",
-    string? Id = null);
+    string? Id = null,
+    bool Enabled = true);

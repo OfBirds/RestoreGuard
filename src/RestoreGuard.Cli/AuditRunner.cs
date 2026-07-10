@@ -251,16 +251,11 @@ public static class AuditRunner
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);
-
-        // Build the sinks up front so their connection ids can be stamped into the
-        // report's own metadata before it is serialized and delivered.
         var sinks = ReportPublisher.BuildSinks(config, configDir);
-        var reportJson = JsonReportWriter.Write(report, inventory, providerErrors,
-            sinks.Select(s => s.Id).ToList());
 
         if (jsonOutput)
         {
-            Console.WriteLine(reportJson);
+            Console.WriteLine(JsonReportWriter.Write(report, inventory, providerErrors, target: null));
         }
         else
         {
@@ -277,10 +272,10 @@ public static class AuditRunner
             }
         }
 
-        // Persist AFTER the report is on stdout: a dead sink can't eat the report,
-        // it can only (loudly) fail the exit code.
-        var sinkFailures = await ReportPublisher.PublishAsync(
-            sinks, reportJson, report.GeneratedAt, Progress);
+        // Each copy is stamped with its own target id; the hash is shared across copies.
+        var sinkFailures = await ReportPublisher.PublishAsync(sinks,
+            sink => JsonReportWriter.Write(report, inventory, providerErrors, target: sink.Id),
+            report.GeneratedAt, Progress);
 
         return report.Overall == Severity.Red || providerErrors.Count > 0 || sinkFailures > 0 ? 1 : 0;
     }

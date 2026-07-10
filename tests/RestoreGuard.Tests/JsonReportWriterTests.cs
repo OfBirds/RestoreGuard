@@ -37,19 +37,36 @@ public class JsonReportWriterTests
     }
 
     [Fact]
+    public void HashIsStableAcrossTargets()
+    {
+        var (report, inventory, providerErrors) = Sample();
+        var a = JsonDocument.Parse(JsonReportWriter.Write(report, inventory, providerErrors, "folder")).RootElement;
+        var b = JsonDocument.Parse(JsonReportWriter.Write(report, inventory, providerErrors, "s3:backups")).RootElement;
+
+        // Same audit -> same hash regardless of target (so a reader dedups across targets);
+        // target differs per copy.
+        Assert.Equal(a.GetProperty("hash").GetString(), b.GetProperty("hash").GetString());
+        Assert.Equal("folder", a.GetProperty("target").GetString());
+        Assert.Equal("s3:backups", b.GetProperty("target").GetString());
+    }
+
+    [Fact]
     public void PayloadMatchesGoldenSnapshot()
     {
         var (report, inventory, providerErrors) = Sample();
 
-        // destinations = the connection ids the report is delivered to (reporting.json);
-        // populated here so the golden documents the field for consumers like HCC.
-        var json = JsonReportWriter.Write(report, inventory, providerErrors, ["folder", "s3:backups"]);
+        var json = JsonReportWriter.Write(report, inventory, providerErrors, target: "offsite-minio");
 
         // A FULL snapshot, not a spot-check: any renamed/removed/retyped/reordered field
         // fails here — which is exactly the drift a downstream consumer would otherwise
         // discover only at runtime. Update the golden deliberately, and bump SchemaVersion
         // (+ ship a new contracts/*.schema.json) when the change is breaking.
-        var golden = File.ReadAllText(Path.Combine("Fixtures", "report-golden.v1.json"));
-        Assert.Equal(Normalize(golden), Normalize(json));
+        var path = Path.Combine("Fixtures", "report-golden.v1.json");
+        if (Environment.GetEnvironmentVariable("RG_UPDATE_TRANSCRIPTS") == "1")
+        {
+            File.WriteAllText(path, json);
+            return;
+        }
+        Assert.Equal(Normalize(File.ReadAllText(path)), Normalize(json));
     }
 }

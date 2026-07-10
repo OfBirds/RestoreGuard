@@ -282,24 +282,25 @@ public class ReportingWizardTranscriptTests
 
             string[] answers =
             [
-                "y", "/var/lib/restoreguard/reports", "30", "local-spool", // folder: on, path, keep 30, id
+                "y", "/var/lib/restoreguard/reports", "30",              // folder: on, path, keep 30
                 "y", "http://192.168.1.10:9000", "backups", "rg-reports/", // s3: on, endpoint, bucket, prefix
                 "", "n",                                                // region default; not AWS -> path-style
                 "/etc/restoreguard/s3.access", "/etc/restoreguard/s3.secret", // both keys from files
-                "offsite-minio",                                        // s3 connection id
                 "y", "", "mongodb://192.168.1.11:27017",                // mongo: on, no file -> inline conn string
-                "", "", "mongo-main",                                   // database + collection defaults, id
+                "", "",                                                 // database + collection defaults
             ];
 
             var dialogue = new StringWriter();
             var probed = new List<string>();
+            var n = 0;
             await ReportingWizard.ConfigureAsync(configPath,
                 new WizardIO(new EchoReader(answers, dialogue), dialogue),
                 sink =>
                 {
                     probed.Add(sink.Description);
                     return Task.FromResult((true, "write access verified"));
-                });
+                },
+                newId: () => $"conn-{++n}");
 
             var sb = new StringBuilder();
             sb.AppendLine("=== Wizard transcript: Report destinations (the `r` menu entry) ===");

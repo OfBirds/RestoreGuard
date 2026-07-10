@@ -90,15 +90,22 @@ public class AuditRunnerTests : IDisposable
         var reports = Path.Combine(_dir.FullName, "configured-reports");
         var config = new RestoreGuardConfig([new DockerHostConfig("goodhost")], null, null, 26,
             null, null, null, null, null, null,
-            Reporting: new ReportingConfig(new FolderSinkConfig(reports)));
+            Reporting: new ReportingConfig(new FolderSinkConfig(reports, Id: "spool")));
 
         var (exit, stdout, progress) = await RunAsync(config, _dir.FullName);
 
         Assert.Equal(0, exit);
         Assert.Contains($"report ok    folder {reports}", progress);
-        // The persisted report IS the stdout report — one serialization, no drift.
-        Assert.Equal(stdout.Trim(), File.ReadAllText(Path.Combine(reports, "latest.json")).Trim());
-        // No default-folder fallback when a sink is configured.
+
+        using var stored = JsonDocument.Parse(File.ReadAllText(Path.Combine(reports, "latest.json")));
+        using var std = JsonDocument.Parse(stdout);
+        // Stored copy is stamped with its own target; stdout has none...
+        Assert.Equal("spool", stored.RootElement.GetProperty("target").GetString());
+        Assert.Equal(JsonValueKind.Null, std.RootElement.GetProperty("target").ValueKind);
+        // ...but the content hash is identical (target/hash are excluded from the hash).
+        Assert.Equal(std.RootElement.GetProperty("hash").GetString(),
+            stored.RootElement.GetProperty("hash").GetString());
+
         Assert.False(Directory.Exists(Path.Combine(_dir.FullName, "default-reports")));
     }
 

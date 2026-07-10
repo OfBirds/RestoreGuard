@@ -15,8 +15,10 @@ public static class ReportingWizard
         ConfigureAsync(configPath, io, VerifySinkAsync);
 
     internal static async Task ConfigureAsync(
-        string configPath, WizardIO io, Func<IReportSink, Task<(bool Ok, string Message)>> probe)
+        string configPath, WizardIO io, Func<IReportSink, Task<(bool Ok, string Message)>> probe,
+        Func<string>? newId = null)
     {
+        newId ??= () => Guid.NewGuid().ToString();
         var config = RestoreGuardConfig.LoadValidated(configPath);
         if (config is null)
             return;
@@ -36,9 +38,9 @@ public static class ReportingWizard
         io.WriteLine("can read the same file and pull the reports back. Answer the three sections;");
         io.WriteLine("what you skip is removed.");
 
-        var folder = await ConfigureFolderAsync(io, existing?.Folder, configDir, probe);
-        var s3 = await ConfigureS3Async(io, existing?.S3, configDir, probe);
-        var mongo = await ConfigureMongoAsync(io, existing?.Mongo, configDir, probe);
+        var folder = await ConfigureFolderAsync(io, existing?.Folder, configDir, probe, newId);
+        var s3 = await ConfigureS3Async(io, existing?.S3, configDir, probe, newId);
+        var mongo = await ConfigureMongoAsync(io, existing?.Mongo, configDir, probe, newId);
 
         var reporting = folder is null && s3 is null && mongo is null
             ? null
@@ -85,7 +87,7 @@ public static class ReportingWizard
 
     private static async Task<FolderSinkConfig?> ConfigureFolderAsync(
         WizardIO io, FolderSinkConfig? existing, string configDir,
-        Func<IReportSink, Task<(bool Ok, string Message)>> probe)
+        Func<IReportSink, Task<(bool Ok, string Message)>> probe, Func<string> newId)
     {
         io.WriteLine();
         if (!InteractiveMode.AskYesNo(io, $"Save reports to a folder?{(existing is null ? "" : " (currently on)")}"))
@@ -110,16 +112,13 @@ public static class ReportingWizard
 
             var keepLast = AskOptionalCount(io,
                 "  keep only the newest N reports there (Enter = keep all)", existing?.KeepLast);
-            var id = InteractiveMode.Ask(io,
-                "  connection id (the name stamped into each report so a reader knows this destination)",
-                existing?.Id ?? "folder");
-            return new FolderSinkConfig(path.Length == 0 ? null : path, keepLast, id.Length == 0 ? null : id);
+            return new FolderSinkConfig(path.Length == 0 ? null : path, keepLast, existing?.Id ?? newId());
         }
     }
 
     private static async Task<S3SinkConfig?> ConfigureS3Async(
         WizardIO io, S3SinkConfig? existing, string configDir,
-        Func<IReportSink, Task<(bool Ok, string Message)>> probe)
+        Func<IReportSink, Task<(bool Ok, string Message)>> probe, Func<string> newId)
     {
         io.WriteLine();
         if (!InteractiveMode.AskYesNo(io,
@@ -155,11 +154,8 @@ public static class ReportingWizard
                 return null;
             }
 
-            var id = InteractiveMode.Ask(io,
-                "  connection id (the name stamped into each report so a reader knows this destination)",
-                existing?.Id ?? $"s3:{bucket}");
             var candidate = new S3SinkConfig(endpoint, bucket, prefix, region, pathStyle,
-                accessKey, accessKeyFile, secretKey, secretKeyFile, id.Length == 0 ? null : id);
+                accessKey, accessKeyFile, secretKey, secretKeyFile, existing?.Id ?? newId());
 
             io.Write("  checking (writing + removing a test object) ... ");
             var (ok, message) = await probe(new S3ReportSink(candidate, configDir));
@@ -177,7 +173,7 @@ public static class ReportingWizard
 
     private static async Task<MongoSinkConfig?> ConfigureMongoAsync(
         WizardIO io, MongoSinkConfig? existing, string configDir,
-        Func<IReportSink, Task<(bool Ok, string Message)>> probe)
+        Func<IReportSink, Task<(bool Ok, string Message)>> probe, Func<string> newId)
     {
         io.WriteLine();
         if (!InteractiveMode.AskYesNo(io,
@@ -196,12 +192,9 @@ public static class ReportingWizard
             }
             var database = InteractiveMode.Ask(io, "  database", existing?.Database ?? "restoreguard");
             var collection = InteractiveMode.Ask(io, "  collection", existing?.Collection ?? "reports");
-            var id = InteractiveMode.Ask(io,
-                "  connection id (the name stamped into each report so a reader knows this destination)",
-                existing?.Id ?? $"mongo:{database}.{collection}");
 
             var candidate = new MongoSinkConfig(connectionString, connectionStringFile, database, collection,
-                id.Length == 0 ? null : id);
+                existing?.Id ?? newId());
 
             io.Write("  checking (ping) ... ");
             var (ok, message) = await probe(new MongoReportSink(candidate, configDir));

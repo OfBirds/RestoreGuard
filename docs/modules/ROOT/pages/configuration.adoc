@@ -312,35 +312,28 @@ one or the other, not both.)
 [source,json]
 ----
 {
-  "folder": { "id": "local-spool", "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+  "folder": { "id": "local-spool", "enabled": true, "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
   "s3": {
-    "id": "offsite-minio",
-    "endpoint": "http://192.168.1.10:9000",
-    "bucket": "backups",
-    "prefix": "restoreguard/",
-    "region": "us-east-1",
-    "forcePathStyle": true,
-    "accessKeyFile": "/etc/restoreguard/s3.access",
-    "secretKeyFile": "/etc/restoreguard/s3.secret"
+    "id": "offsite-minio", "enabled": true,
+    "endpoint": "http://192.168.1.10:9000", "bucket": "backups",
+    "prefix": "restoreguard/", "region": "us-east-1", "forcePathStyle": true,
+    "accessKeyFile": "/etc/restoreguard/s3.access", "secretKeyFile": "/etc/restoreguard/s3.secret"
   },
   "mongo": {
-    "id": "mongo-main",
+    "id": "mongo-main", "enabled": true,
     "connectionStringFile": "/etc/restoreguard/mongo.uri",
-    "database": "restoreguard",
-    "collection": "reports"
+    "database": "restoreguard", "collection": "reports"
   }
 }
 ----
 
-Each destination carries an `id` — a stable *connection id*. Before publishing,
-RestoreGuard stamps the ids it is delivering to into the report's own metadata
-(`"destinations": ["local-spool", "offsite-minio", "mongo-main"]` — see
-xref:automation.adoc[Automation]), so a report is *self-describing* about which
-connection it lives in. That is the link a reader — for example HCC — uses to
-match a report it pulled back to its entry in `reporting.json`. `id` is optional;
-omit it and the sink derives one (`folder`, `s3:<bucket>`,
-`mongo:<database>.<collection>`), but the wizard writes an explicit one so it is
-visible in the file.
+Each destination has an `id` (any string, must be unique — the wizard
+auto-generates a GUID, edit it to taste) and `enabled` (default `true`).
+RestoreGuard writes to every *enabled* destination. Each report copy is stamped
+with its own `target` (the id it was saved to) plus a content `hash` that is
+identical across copies — so a reader (HCC) tells *where* and *when* a report was
+saved and dedups by `hash` (see xref:automation.adoc[Automation]). A duplicate
+`id` is rejected when the file is read.
 
 Every audit delivers its JSON report (the same document `--json` prints) to
 *all* destinations in the file, in parallel. Each is optional; with no

@@ -21,7 +21,6 @@ Save reports to a folder? [y/N]: «y»
   folder path (Enter = /home/you/.local/share/restoreguard/reports): «/var/lib/restoreguard/reports»
   checking write access ... OK — write access verified
   keep only the newest N reports there (Enter = keep all): «30»
-  connection id (the name stamped into each report so a reader knows this destination) [folder]: «local-spool»
 
 Upload reports to S3-compatible object storage (MinIO, Garage, R2, AWS)? [y/N]: «y»
   endpoint URL (e.g. http://192.168.1.10:9000; Enter = cancel): «http://192.168.1.10:9000»
@@ -31,7 +30,6 @@ Upload reports to S3-compatible object storage (MinIO, Garage, R2, AWS)? [y/N]: 
   is this AWS S3 itself (virtual-host addressing)? [y/N]: «n»
   file holding the access key (recommended; Enter = type it inline): «/etc/restoreguard/s3.access»
   file holding the secret key (recommended; Enter = type it inline): «/etc/restoreguard/s3.secret»
-  connection id (the name stamped into each report so a reader knows this destination) [s3:backups]: «offsite-minio»
   checking (writing + removing a test object) ... OK — write access verified
 
 Insert reports into MongoDB? [y/N]: «y»
@@ -39,7 +37,6 @@ Insert reports into MongoDB? [y/N]: «y»
   connection string (mongodb://user:pass@host:27017) (stored in the config file; Enter = cancel): «mongodb://192.168.1.11:27017»
   database [restoreguard]: «Enter»
   collection [reports]: «Enter»
-  connection id (the name stamped into each report so a reader knows this destination) [mongo:restoreguard.reports]: «mongo-main»
   checking (ping) ... OK — write access verified
 
 Reports now go to: folder /var/lib/restoreguard/reports, s3 http://192.168.1.10:9000/backups, mongo restoreguard.reports.
@@ -70,7 +67,8 @@ a folder destination always keeps a stable latest.json for easy consumption.
   "folder": {
     "path": "/var/lib/restoreguard/reports",
     "keepLast": 30,
-    "id": "local-spool"
+    "id": "conn-1",
+    "enabled": true
   },
   "s3": {
     "endpoint": "http://192.168.1.10:9000",
@@ -80,12 +78,14 @@ a folder destination always keeps a stable latest.json for easy consumption.
     "forcePathStyle": true,
     "accessKeyFile": "/etc/restoreguard/s3.access",
     "secretKeyFile": "/etc/restoreguard/s3.secret",
-    "id": "offsite-minio"
+    "id": "conn-2",
+    "enabled": true
   },
   "mongo": {
     "connectionString": "mongodb://192.168.1.11:27017",
     "database": "restoreguard",
     "collection": "reports",
-    "id": "mongo-main"
+    "id": "conn-3",
+    "enabled": true
   }
 }
