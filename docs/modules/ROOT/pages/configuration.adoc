@@ -312,8 +312,9 @@ one or the other, not both.)
 [source,json]
 ----
 {
-  "folder": { "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+  "folder": { "id": "local-spool", "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
   "s3": {
+    "id": "offsite-minio",
     "endpoint": "http://192.168.1.10:9000",
     "bucket": "backups",
     "prefix": "restoreguard/",
@@ -323,12 +324,23 @@ one or the other, not both.)
     "secretKeyFile": "/etc/restoreguard/s3.secret"
   },
   "mongo": {
+    "id": "mongo-main",
     "connectionStringFile": "/etc/restoreguard/mongo.uri",
     "database": "restoreguard",
     "collection": "reports"
   }
 }
 ----
+
+Each destination carries an `id` — a stable *connection id*. Before publishing,
+RestoreGuard stamps the ids it is delivering to into the report's own metadata
+(`"destinations": ["local-spool", "offsite-minio", "mongo-main"]` — see
+xref:automation.adoc[Automation]), so a report is *self-describing* about which
+connection it lives in. That is the link a reader — for example HCC — uses to
+match a report it pulled back to its entry in `reporting.json`. `id` is optional;
+omit it and the sink derives one (`folder`, `s3:<bucket>`,
+`mongo:<database>.<collection>`), but the wizard writes an explicit one so it is
+visible in the file.
 
 Every audit delivers its JSON report (the same document `--json` prints) to
 *all* destinations in the file, in parallel. Each is optional; with no

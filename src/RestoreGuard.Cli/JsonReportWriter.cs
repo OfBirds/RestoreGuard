@@ -28,7 +28,8 @@ public static class JsonReportWriter
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
     };
 
-    public static string Write(Report report, LabInventory inventory, IReadOnlyList<string> providerErrors)
+    public static string Write(Report report, LabInventory inventory, IReadOnlyList<string> providerErrors,
+        IReadOnlyList<string>? destinations = null)
     {
         var payload = new
         {
@@ -36,6 +37,10 @@ public static class JsonReportWriter
             generatedAt = report.GeneratedAt,
             overall = report.Overall,
             partial = providerErrors.Count > 0,
+            // The connection ids this report is being delivered to (reporting.json),
+            // so a report is self-describing about where it lives — the link a reader
+            // (e.g. HCC) uses to match a report back to its destination in reporting.json.
+            destinations = destinations ?? [],
             counts = new
             {
                 services = inventory.Services.Count,

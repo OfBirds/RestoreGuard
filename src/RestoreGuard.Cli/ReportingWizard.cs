@@ -110,7 +110,10 @@ public static class ReportingWizard
 
             var keepLast = AskOptionalCount(io,
                 "  keep only the newest N reports there (Enter = keep all)", existing?.KeepLast);
-            return new FolderSinkConfig(path.Length == 0 ? null : path, keepLast);
+            var id = InteractiveMode.Ask(io,
+                "  connection id (the name stamped into each report so a reader knows this destination)",
+                existing?.Id ?? "folder");
+            return new FolderSinkConfig(path.Length == 0 ? null : path, keepLast, id.Length == 0 ? null : id);
         }
     }
 
@@ -152,8 +155,11 @@ public static class ReportingWizard
                 return null;
             }
 
+            var id = InteractiveMode.Ask(io,
+                "  connection id (the name stamped into each report so a reader knows this destination)",
+                existing?.Id ?? $"s3:{bucket}");
             var candidate = new S3SinkConfig(endpoint, bucket, prefix, region, pathStyle,
-                accessKey, accessKeyFile, secretKey, secretKeyFile);
+                accessKey, accessKeyFile, secretKey, secretKeyFile, id.Length == 0 ? null : id);
 
             io.Write("  checking (writing + removing a test object) ... ");
             var (ok, message) = await probe(new S3ReportSink(candidate, configDir));
@@ -190,8 +196,12 @@ public static class ReportingWizard
             }
             var database = InteractiveMode.Ask(io, "  database", existing?.Database ?? "restoreguard");
             var collection = InteractiveMode.Ask(io, "  collection", existing?.Collection ?? "reports");
+            var id = InteractiveMode.Ask(io,
+                "  connection id (the name stamped into each report so a reader knows this destination)",
+                existing?.Id ?? $"mongo:{database}.{collection}");
 
-            var candidate = new MongoSinkConfig(connectionString, connectionStringFile, database, collection);
+            var candidate = new MongoSinkConfig(connectionString, connectionStringFile, database, collection,
+                id.Length == 0 ? null : id);
 
             io.Write("  checking (ping) ... ");
             var (ok, message) = await probe(new MongoReportSink(candidate, configDir));

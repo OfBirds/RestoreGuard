@@ -282,12 +282,13 @@ public class ReportingWizardTranscriptTests
 
             string[] answers =
             [
-                "y", "/var/lib/restoreguard/reports", "30",              // folder: on, path, keep newest 30
+                "y", "/var/lib/restoreguard/reports", "30", "local-spool", // folder: on, path, keep 30, id
                 "y", "http://192.168.1.10:9000", "backups", "rg-reports/", // s3: on, endpoint, bucket, prefix
                 "", "n",                                                // region default; not AWS -> path-style
                 "/etc/restoreguard/s3.access", "/etc/restoreguard/s3.secret", // both keys from files
+                "offsite-minio",                                        // s3 connection id
                 "y", "", "mongodb://192.168.1.11:27017",                // mongo: on, no file -> inline conn string
-                "", "",                                                 // database + collection defaults
+                "", "", "mongo-main",                                   // database + collection defaults, id
             ];
 
             var dialogue = new StringWriter();

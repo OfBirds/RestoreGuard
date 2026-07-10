@@ -41,7 +41,9 @@ public class JsonReportWriterTests
     {
         var (report, inventory, providerErrors) = Sample();
 
-        var json = JsonReportWriter.Write(report, inventory, providerErrors);
+        // destinations = the connection ids the report is delivered to (reporting.json);
+        // populated here so the golden documents the field for consumers like HCC.
+        var json = JsonReportWriter.Write(report, inventory, providerErrors, ["folder", "s3:backups"]);
 
         // A FULL snapshot, not a spot-check: any renamed/removed/retyped/reordered field
         // fails here — which is exactly the drift a downstream consumer would otherwise

@@ -35,6 +35,11 @@
       "description": "True when discovery was incomplete (one or more providerErrors); a partial run must NOT be read as a clean bill of health.",
       "type": "boolean"
     },
+    "destinations": {
+      "description": "Connection ids (from reporting.json) this report is delivered to, so a report is self-describing about which destination it lives in — the link a reader (e.g. HCC) uses to match a report back to its connection. Additive since schemaVersion 1; may be absent in reports from older RestoreGuard versions.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "counts": {
       "type": "object",
       "required": ["services", "backupArtifacts", "storageTargets", "red", "yellow"],

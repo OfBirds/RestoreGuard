@@ -3,6 +3,10 @@
   "generatedAt": "2026-07-04T23:30:00+00:00",
   "overall": "red",
   "partial": true,
+  "destinations": [
+    "folder",
+    "s3:backups"
+  ],
   "counts": {
     "services": 1,
     "backupArtifacts": 0,

@@ -42,7 +42,7 @@ public static class ReportPublisher
     {
         var sinks = new List<IReportSink>();
         if (reporting?.Folder is { } folder)
-            sinks.Add(new FolderReportSink(ResolveFolder(folder.Path, secretsBaseDir), folder.KeepLast));
+            sinks.Add(new FolderReportSink(ResolveFolder(folder.Path, secretsBaseDir), folder.KeepLast, folder.Id));
         if (reporting?.S3 is { } s3)
             sinks.Add(new S3ReportSink(s3, secretsBaseDir));
         if (reporting?.Mongo is { } mongo)

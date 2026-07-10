@@ -30,6 +30,7 @@ changes are additive only, so scripts written today keep working:
   "generatedAt": "2026-07-05T03:00:12+00:00",
   "overall": "red",
   "partial": false,
+  "destinations": ["local-spool", "offsite-minio", "mongo-main"],
   "counts": {
     "services": 42,
     "backupArtifacts": 118,
@@ -62,6 +63,10 @@ changes are additive only, so scripts written today keep working:
   than guessing its shape.
 * `overall` is the worst severity present; `partial: true` means at least one
   provider failed and `providerErrors` says which.
+* `destinations` lists the *connection ids* (from `reporting.json`) this report
+  was delivered to — so a report is self-describing about where it lives, and a
+  reader can match a report it pulled back to its connection. Additive since
+  `schemaVersion` 1; absent in reports from older versions.
 * `suppressedFindings` and `activeSuppressions` are always included — the JSON
   shows what was silenced, same as the text report.
 

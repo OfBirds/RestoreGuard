@@ -15,6 +15,11 @@ public interface IReportSink
     /// <summary>Short label for progress lines, e.g. "folder /var/lib/restoreguard/reports".</summary>
     string Description { get; }
 
+    /// <summary>Stable connection id for this destination — stamped into each report's
+    /// <c>destinations</c> metadata so a report is self-describing about where it lives.
+    /// Comes from the config's <c>id</c>, or a type-derived default.</summary>
+    string Id { get; }
+
     Task<string> PublishAsync(string reportJson, DateTimeOffset generatedAt, CancellationToken ct = default);
 
     Task VerifyAsync(CancellationToken ct = default);
@@ -43,9 +48,10 @@ public static class SinkSecrets
 /// latest.json — the stable filename a consumer script reads. Files appear via
 /// dot-prefixed temp + rename, so a file watcher never sees a half-written report.
 /// </summary>
-public sealed class FolderReportSink(string folder, int? keepLast) : IReportSink
+public sealed class FolderReportSink(string folder, int? keepLast, string? id = null) : IReportSink
 {
     public string Description => $"folder {folder}";
+    public string Id => id ?? "folder";
 
     public Task<string> PublishAsync(string reportJson, DateTimeOffset generatedAt, CancellationToken ct = default)
     {
@@ -114,6 +120,7 @@ public sealed class S3ReportSink : IReportSink
     }
 
     public string Description => $"s3 {_config.Endpoint.TrimEnd('/')}/{_config.Bucket}";
+    public string Id => _config.Id ?? $"s3:{_config.Bucket}";
 
     public async Task<string> PublishAsync(string reportJson, DateTimeOffset generatedAt, CancellationToken ct = default)
     {
@@ -191,6 +198,7 @@ public sealed class S3ReportSink : IReportSink
 public sealed class MongoReportSink(MongoSinkConfig config, string configDir) : IReportSink
 {
     public string Description => $"mongo {config.Database}.{config.Collection}";
+    public string Id => config.Id ?? $"mongo:{config.Database}.{config.Collection}";
 
     public async Task<string> PublishAsync(string reportJson, DateTimeOffset generatedAt, CancellationToken ct = default)
     {

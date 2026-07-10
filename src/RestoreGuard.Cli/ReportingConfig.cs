@@ -52,14 +52,18 @@ public sealed record ReportingConfig(
 
 /// <summary>A local (or mounted) directory: rg-report-&lt;utc-ts&gt;.json per audit,
 /// plus latest.json atomically replaced — the file a consumer script reads.
-/// A relative path resolves against the config file's directory.</summary>
+/// A relative path resolves against the config file's directory. <c>Id</c> is the
+/// stable connection id stamped into each report's <c>destinations</c> metadata, so a
+/// report knows which connection it lives in (defaults to "folder").</summary>
 public sealed record FolderSinkConfig(
     string? Path = null,
-    int? KeepLast = null);
+    int? KeepLast = null,
+    string? Id = null);
 
 /// <summary>Any S3-compatible object store (MinIO, Garage, R2, AWS). Secrets go
 /// inline or — better — in root-only files via the *File variants; a relative
-/// file path resolves against the config file's directory.</summary>
+/// file path resolves against the config file's directory. <c>Id</c> is the
+/// connection id stamped into report metadata (defaults to "s3:&lt;bucket&gt;").</summary>
 public sealed record S3SinkConfig(
     string Endpoint,
     string Bucket,
@@ -71,13 +75,17 @@ public sealed record S3SinkConfig(
     string? AccessKey = null,
     string? AccessKeyFile = null,
     string? SecretKey = null,
-    string? SecretKeyFile = null);
+    string? SecretKeyFile = null,
+    string? Id = null);
 
 /// <summary>A MongoDB collection: each report is inserted as one document
 /// (queryable by generatedAt/overall/findings). connectionStringFile keeps
-/// credentials out of this config; relative to the config file's directory.</summary>
+/// credentials out of this config; relative to the config file's directory. <c>Id</c>
+/// is the connection id stamped into report metadata (defaults to
+/// "mongo:&lt;database&gt;.&lt;collection&gt;").</summary>
 public sealed record MongoSinkConfig(
     string? ConnectionString = null,
     string? ConnectionStringFile = null,
     string Database = "restoreguard",
-    string Collection = "reports");
+    string Collection = "reports",
+    string? Id = null);

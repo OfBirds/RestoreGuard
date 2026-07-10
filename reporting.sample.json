@@ -8,11 +8,17 @@
   // (`r` in the menu) writes this file for you, live-probing every answer.
   // Comments and trailing commas are allowed.
 
+  // Every destination carries an "id" — a stable CONNECTION ID. RestoreGuard stamps
+  // the ids it delivered to into each report's own metadata ("destinations": [...]),
+  // so a report is self-describing about which connection it lives in — that's the
+  // link a reader (e.g. HCC) uses to match a report back to its entry here. id is
+  // optional; if omitted the sink derives one (folder, s3:<bucket>, mongo:<db>.<coll>).
+
   // A folder: rg-report-<utc-ts>.json per audit + an atomically-replaced latest.json
   // (the stable filename a consumer reads). keepLast prunes all but the newest N
   // timestamped reports; omit it to keep everything. A relative path resolves against
   // THIS file's directory.
-  "folder": { "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
+  "folder": { "id": "local-spool", "path": "/var/lib/restoreguard/reports", "keepLast": 30 },
 
   // Any S3-compatible store (MinIO, Garage, R2, AWS) — the bucket must already exist.
   // forcePathStyle true (default) fits self-hosted stores; false = AWS's
@@ -20,6 +26,7 @@
   // — in root-only files via the *File variants (relative to THIS file's directory, so
   // the file stays portable to HCC).
   "s3": {
+    "id": "offsite-minio",
     "endpoint": "http://192.168.1.10:9000",
     "bucket": "backups",
     "prefix": "restoreguard/",
@@ -33,6 +40,7 @@
   // overall, findings.ruleId, ...). connectionString inline, or connectionStringFile.
   // MongoDB-wire-compatible servers (e.g. FerretDB) work here unchanged.
   "mongo": {
+    "id": "mongo-main",
     "connectionStringFile": "/etc/restoreguard/mongo.uri",
     "database": "restoreguard",
     "collection": "reports"
