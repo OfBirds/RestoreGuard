@@ -3,10 +3,6 @@
   "generatedAt": "2026-07-04T23:30:00\u002B00:00",
   "overall": "red",
   "partial": true,
-  "destinations": [
-    "folder",
-    "s3:backups"
-  ],
   "counts": {
     "services": 1,
     "backupArtifacts": 0,
@@ -38,5 +34,7 @@
   ],
   "providerErrors": [
     "lab118: unreachable"
-  ]
+  ],
+  "target": "offsite-minio",
+  "hash": "b56f7f88575be8a8ea2e0425d5a2daf97d23831d21009ef6047cd5fc8c7ca1ff"
 }

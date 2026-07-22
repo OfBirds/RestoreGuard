@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using RestoreGuard.Cli;
 using RestoreGuard.Core;
 using RestoreGuard.Core.Model;
@@ -57,16 +58,26 @@ public class JsonReportWriterTests
 
         var json = JsonReportWriter.Write(report, inventory, providerErrors, target: "offsite-minio");
 
-        // A FULL snapshot, not a spot-check: any renamed/removed/retyped/reordered field
-        // fails here — which is exactly the drift a downstream consumer would otherwise
-        // discover only at runtime. Update the golden deliberately, and bump SchemaVersion
-        // (+ ship a new contracts/*.schema.json) when the change is breaking.
+        // A FULL snapshot, not a spot-check: any renamed/removed/retyped field fails
+        // here — which is exactly the drift a downstream consumer would otherwise
+        // discover only at runtime. Field *order* does not matter (System.Text.Json
+        // property emission order varies across SDK versions); the golden is compared
+        // structurally, not as a raw string.
+        // Update the golden deliberately, and bump SchemaVersion (+ ship a new
+        // contracts/*.schema.json) when the change is breaking.
         var path = Path.Combine("Fixtures", "report-golden.v1.json");
         if (Environment.GetEnvironmentVariable("RG_UPDATE_TRANSCRIPTS") == "1")
         {
             File.WriteAllText(path, json);
             return;
         }
-        Assert.Equal(Normalize(File.ReadAllText(path)), Normalize(json));
+
+        var expected = JsonNode.Parse(File.ReadAllText(path));
+        var actual = JsonNode.Parse(json);
+        Assert.True(
+            JsonNode.DeepEquals(expected, actual),
+            "Golden snapshot differs from actual output. Fields may have been renamed, removed, " +
+            "retyped, or given new values. Regenerate with RG_UPDATE_TRANSCRIPTS=1 and bump " +
+            "SchemaVersion if the change is breaking.");
     }
 }
