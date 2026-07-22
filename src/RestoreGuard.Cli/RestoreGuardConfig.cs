@@ -25,7 +25,8 @@ public sealed record RestoreGuardConfig(
     // RestoreGuard wrote there. Path relative to this config. The inline `Reporting`
     // section still works but is the legacy form; the wizard writes the file.
     string? ReportingFile = null,
-    ReportingConfig? Reporting = null)
+    ReportingConfig? Reporting = null,
+    DashboardDriftCliConfig? DashboardDrift = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -177,6 +178,17 @@ public sealed record RestoreGuardConfig(
         if (PbsMaintenance is { } pm && string.IsNullOrWhiteSpace(pm.ExecAlias))
             errors.Add("pbsMaintenance.execAlias is empty.");
 
+        if (DashboardDrift is { } dd)
+        {
+            if (string.IsNullOrWhiteSpace(dd.K3sMasterAlias))
+                errors.Add("dashboardDrift.k3sMasterAlias is empty.");
+            foreach (var (h, i) in (dd.DashboardHostAliases ?? []).Select((h, i) => (h, i)))
+            {
+                if (string.IsNullOrWhiteSpace(h))
+                    errors.Add($"dashboardDrift.dashboardHostAliases[{i}] is empty.");
+            }
+        }
+
         Reporting?.Validate(errors);
 
         return errors;
@@ -226,3 +238,7 @@ public sealed record PbsMaintenanceCliConfig(
     // in the datastore — bare-metal hosts backed up straight to PBS.
     IReadOnlyList<string>? HostBackups = null,
     double MaxHostBackupAgeHours = 26);
+
+public sealed record DashboardDriftCliConfig(
+    string K3sMasterAlias,
+    IReadOnlyList<string> DashboardHostAliases);

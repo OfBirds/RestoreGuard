@@ -1,0 +1,46 @@
+= Dashboard Registration Drift Check
+
+Verifies that running Docker containers with published ports are registered
+in the Homepage dashboard, catching the "forgot to register service" failure
+after a new deployment.
+
+== What it checks
+
+You deploy a new container, it runs, publishes ports — but you forget to add it
+to your Homepage dashboard. It works but nobody can find it, and nobody monitors
+it. This check catches that gap before it becomes invisible technical debt.
+
+== Findings
+
+[cols="2,1,1,3"]
+|===
+| Code | Severity | Suppression key | Description
+| `dashboard-registration-drift/unreachable` | Red | `dashboard-registry`
+| The Homepage ConfigMap is unreachable — the check cannot verify registrations.
+| `dashboard-registration-drift/unregistered` | Yellow | `{host-ip}/{container-name}`
+| A container publishes ports but is not registered in the dashboard.
+|===
+
+== Detection logic
+
+. The check fetches the Homepage ConfigMap (`homepage-config` in the
+  `homepage` namespace) via k3s.
+. It enumerates containers with published host ports on every configured
+  Docker host.
+. Each container is matched against the dashboard's service list:
+* Exact name match (case-insensitive) against the service name.
+* Host:port match via URI parsing against the service URL (not substring).
+* Default port handling: a service URL without an explicit port uses the
+  scheme default (HTTP 80, HTTPS 443), and the container must occupy that
+  port on the *host* side.
+
+== Remediation
+
+Add the service to `services.yaml` in the `homepage-config` ConfigMap on your
+k3s master. The wizard (`g`) can live-probe both the ConfigMap and your Docker
+hosts so you can see what is registered right now.
+
+Containers that are intentionally off the dashboard (infrastructure sidecars,
+exporters, etc.) can be added to the suppressions file via the wizard or by
+hand with a `dashboard-registration-drift/unregistered` entry keyed to
+`{host-ip}/{container-name}`.

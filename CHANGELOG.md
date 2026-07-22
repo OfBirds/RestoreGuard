@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New check: `dashboard-registration-drift`
+  - Detects Docker containers with published ports that are not registered in Homepage dashboard
+  - Finding codes: 
+    - `dashboard-registration-drift/unreachable` (Severity.Red) - Dashboard ConfigMap unavailable
+    - `dashboard-registration-drift/unregistered` (Severity.Yellow) - Container running but not registered
+  - Suppression model:
+    - Red finding uses static key: `dashboard-registry`
+    - Yellow findings use host-scoped keys: `{host-ip}/{container-name}` (e.g., `192.168.1.99/webapp`)
+  - Matching logic:
+    - Exact container name match (case-insensitive)
+    - Precise host:port matching using URI parsing (no substring matching)
+    - Default HTTP/HTTPS ports handled for standard ports 80/443
 
 - **Report destinations (a standalone `reporting.json`)**: every audit now *delivers* its
   JSON report instead of only printing it — to a **folder** (timestamped

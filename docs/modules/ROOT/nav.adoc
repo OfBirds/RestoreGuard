@@ -2,6 +2,7 @@
 * Auditing your backups
 ** xref:getting-started.adoc[Getting started]
 ** xref:checks.adoc[What gets checked]
+** xref:dashboard-registration-drift.adoc[Dashboard drift check]
 ** xref:suppressions.adoc[Suppressions]
 ** xref:automation.adoc[Automation & JSON output]
 * Reference

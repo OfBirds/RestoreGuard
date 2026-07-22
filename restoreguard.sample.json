@@ -204,6 +204,17 @@
     }
   ],
 
+
+  // Dashboard registration drift: verifies running Docker containers with published
+  // ports are registered in the Homepage dashboard (services.yaml ConfigMap on k3s).
+  // Catches the "forgot to add to the dashboard" failure after deploying a new service.
+  // k3sMasterAlias: SSH alias for the k3s node that hosts Homepage (ConfigMap fetch).
+  // dashboardHostAliases: Docker hosts to scan for running containers.
+  "dashboardDrift": {
+    "k3sMasterAlias": "myk3smaster",
+    "dashboardHostAliases": ["mydockerhost", "myotherhost"]
+  },
+
   // Where each audit DELIVERS its JSON report (the same document --json prints).
   // The destinations live in their OWN self-contained file so a SECOND tool — e.g.
   // HCC — can read the SAME file, connect to the same folder/bucket/DB, and pull the

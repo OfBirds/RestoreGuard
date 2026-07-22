@@ -97,6 +97,9 @@ public static class InteractiveMode
                 case "r" or "reporting":
                     await ReportingWizard.ConfigureAsync(configPath, io);
                     break;
+                case "g" or "dashboard" or "drift":
+                    await DashboardRegistrationDriftWizard.ConfigureAsync(configPath, ssh, io);
+                    break;
                 case "q" or "quit" or "exit" or null:
                     return 0;
                 case "":
@@ -114,6 +117,7 @@ public static class InteractiveMode
         io.WriteLine("  a = run the audit       d = doctor (verify host access)");
         io.WriteLine("  j = audit, JSON output  s = setup (redo the config)");
         io.WriteLine("  r = reporting (where audit reports are saved)");
+        io.WriteLine("  g = dashboard drift check (containers vs. dashboard)");
         io.WriteLine("  q = quit");
     }
 
@@ -705,7 +709,7 @@ public static class InteractiveMode
 
     /// <summary>Asks for an SSH destination and immediately proves it works; on
     /// failure shows the cause and re-asks (with a keep-anyway escape hatch).</summary>
-    private static async Task<string> AskSshDestinationAsync(ISshProvider ssh, WizardIO io, string prompt, string defaultValue = "")
+    internal static async Task<string> AskSshDestinationAsync(ISshProvider ssh, WizardIO io, string prompt, string defaultValue = "")
     {
         while (true)
         {

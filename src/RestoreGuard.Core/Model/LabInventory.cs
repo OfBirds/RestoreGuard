@@ -12,4 +12,13 @@ public sealed record LabInventory(
     IReadOnlyList<StorageTarget> Storage)
 {
     public static readonly LabInventory Empty = new(DateTimeOffset.MinValue, [], [], []);
+
+    /// <summary>Homepage dashboard service registry state (for dashboard-registration-drift check).</summary>
+    public DashboardRegistry Dashboard { get; init; } = new();
+
+    /// <summary>Docker hosts with running containers (for dashboard-registration-drift check).</summary>
+    public IReadOnlyList<DockerHost> Hosts { get; init; } = Array.Empty<DockerHost>();
+
+    /// <summary>The k3s/master host identifier.</summary>
+    public string ClusterHost { get; init; } = "";
 }

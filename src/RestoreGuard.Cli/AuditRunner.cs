@@ -3,6 +3,7 @@ using RestoreGuard.Checks;
 using RestoreGuard.Core;
 using RestoreGuard.Core.Model;
 using RestoreGuard.Providers;
+using RestoreGuard.Providers.Dashboard;
 using RestoreGuard.Providers.DbDump;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.FileBackups;
@@ -77,6 +78,16 @@ public static class AuditRunner
         var sqliteTasks = (config.SqliteBackupDirs ?? [])
             .Select(s => Track("sqlite", $"{s.Alias} ({s.Name})", sqliteProvider.GetAsync(s)))
             .ToList();
+
+        // Dashboard registration drift probe: fetch Homepage ConfigMap from k3s
+        // master, then docker ps from each configured host.
+        var dashboardProvider = new DashboardProvider(ssh);
+        var dashboardTask = config.DashboardDrift is { } dd
+            ? Track("dashboard", dd.K3sMasterAlias,
+                dashboardProvider.GetProbeAsync(
+                    dd.K3sMasterAlias,
+                    dd.DashboardHostAliases.Select(a => new DockerHostConfig(a)).ToList()))
+            : Task.FromResult<(string, DashboardProvider.DashboardProbeResult?, string?)>(("", null, null));
 
         Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
 
@@ -188,7 +199,16 @@ public static class AuditRunner
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
-        var inventory = new LabInventory(DateTimeOffset.UtcNow, services, artifacts, storage);
+        // Collect dashboard probe results
+        var (dashHost, dashResult, dashError) = dashboardTask.Result;
+        if (dashError is not null) providerErrors.Add($"{dashHost}: {dashError}");
+
+        var inventory = new LabInventory(DateTimeOffset.UtcNow, services, artifacts, storage)
+        {
+            Dashboard = dashResult?.Dashboard ?? new DashboardRegistry(),
+            Hosts = dashResult?.Hosts ?? Array.Empty<DockerHost>(),
+            ClusterHost = config.DashboardDrift?.K3sMasterAlias ?? ""
+        };
 
         List<ICheck> checks = [new MountDriftCheck(), new ConfigDriftCheck(), new StorageCapacityCheck(new StorageCapacityOptions())];
         foreach (var dbc in config.LogicalDbBackups ?? [])
@@ -248,6 +268,10 @@ public static class AuditRunner
                 .Select(z => new ZfsReplicationExpectation(z.Name,
                     TimeSpan.FromHours(z.MaxSnapshotAgeHours), TimeSpan.FromHours(z.MaxReplicaAgeHours)))
                 .ToList()));
+        }
+        if (config.DashboardDrift is { })
+        {
+            checks.Add(new DashboardRegistrationDriftCheck());
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);
