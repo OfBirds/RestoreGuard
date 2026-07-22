@@ -17,7 +17,7 @@ it. This check catches that gap before it becomes invisible technical debt.
 | Code | Severity | Suppression key | Description
 | `dashboard-registration-drift/unreachable` | Red | `dashboard-registry`
 | The Homepage ConfigMap is unreachable — the check cannot verify registrations.
-| `dashboard-registration-drift/unregistered` | Yellow | `{host-ip}/{container-name}`
+| `dashboard-registration-drift/unregistered` | Yellow | `<host-ip>/<container-name>`
 | A container publishes ports but is not registered in the dashboard.
 |===
 
@@ -43,4 +43,4 @@ hosts so you can see what is registered right now.
 Containers that are intentionally off the dashboard (infrastructure sidecars,
 exporters, etc.) can be added to the suppressions file via the wizard or by
 hand with a `dashboard-registration-drift/unregistered` entry keyed to
-`{host-ip}/{container-name}`.
+`<host-ip>/<container-name>`.
