@@ -3,7 +3,10 @@ using RestoreGuard.Core.Model;
 
 namespace RestoreGuard.Checks;
 
-public sealed record OffsiteJobExpectation(string Name, string Host, TimeSpan MaxSyncAge);
+public sealed record OffsiteJobExpectation(string Name, string Host, TimeSpan MaxSyncAge, TimeSpan MaxRunAge = default, string? LogError = null)
+{
+    public TimeSpan EffectiveMaxRunAge => MaxRunAge == default ? TimeSpan.FromHours(6) : MaxRunAge;
+}
 
 /// <summary>
 /// Generic off-site sync jobs (rclone wrapper scripts): each configured job must
@@ -25,9 +28,39 @@ public sealed class OffsiteJobCheck(IReadOnlyList<OffsiteJobExpectation> expecta
 
         foreach (var expected in expectations)
         {
-            var last = byName[expected.Name].OrderByDescending(b => b.Timestamp).FirstOrDefault();
+            if (expected.LogError is not null)
+            {
+                yield return new Finding(
+                    "offsite/log-unreadable", Severity.Red, expected.Name, expected.Host,
+                    $"Cannot read the sync log for '{expected.Name}': {expected.LogError}",
+                    "Restore access to the configured log, then rerun the audit to verify the off-site copy.");
+                continue;
+            }
+
+            var runs = byName[expected.Name].ToList();
+            var active = runs.Where(b => b.Status == "running").OrderByDescending(b => b.Timestamp).FirstOrDefault();
+            if (active is not null && inventory.CapturedAt - active.Timestamp > expected.EffectiveMaxRunAge)
+            {
+                yield return new Finding(
+                    "offsite/hung", Severity.Red, expected.Name, expected.Host,
+                    $"Off-site sync ({active.Location}) started at {active.Timestamp:u} and has no completion marker after {expected.EffectiveMaxRunAge.TotalHours:F0}h.",
+                    "Check the process and log; a running marker is only healthy within the configured execution window.");
+            }
+
+            var last = runs.Where(b => b.Status != "running").OrderByDescending(b => b.Timestamp).FirstOrDefault();
             if (last is null)
             {
+                if (active is not null)
+                {
+                    if (inventory.CapturedAt - active.Timestamp <= expected.EffectiveMaxRunAge)
+                    {
+                        yield return new Finding(
+                            "offsite/in-progress", Severity.Yellow, expected.Name, expected.Host,
+                            $"Off-site sync ({active.Location}) started at {active.Timestamp:u} and has not completed yet.",
+                            "Wait for the completion marker; a run that exceeds the execution window becomes RED.");
+                    }
+                    continue;
+                }
                 yield return new Finding(
                     "offsite/never-ran", Severity.Red, expected.Name, expected.Host,
                     $"The sync log has no runs at all for '{expected.Name}'.",

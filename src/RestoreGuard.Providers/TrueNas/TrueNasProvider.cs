@@ -79,11 +79,14 @@ public sealed class TrueNasProvider(ISshProvider ssh)
                 Tier: BackupTier.CloudSync,
                 TargetService: task.Path.StartsWith("/mnt/", StringComparison.Ordinal) ? task.Path[5..] : task.Path,
                 Location: $"cloudsync task {task.Id}: {task.Description} -> {task.DestinationFolder}",
-                Timestamp: task.TimeFinished ?? DateTimeOffset.MinValue,
+                Timestamp: task.TimeFinished ?? task.TimeStarted ?? DateTimeOffset.MinValue,
                 SizeBytes: 0,
                 Method: "rclone-push",
                 HasOffsiteCopy: true,
-                Status: !task.Enabled ? "disabled" : task.JobState == "SUCCESS" ? "ok" : "failed"));
+                Status: !task.Enabled ? "disabled"
+                    : task.JobState == "SUCCESS" ? "ok"
+                    : task.JobState == "RUNNING" ? "running"
+                    : "failed"));
         }
 
         return new TrueNasInventory(storage, artifacts);

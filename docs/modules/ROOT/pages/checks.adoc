@@ -66,8 +66,11 @@ capacity check (`rclone about` — not every backend supports it).
 [cols="2,1,4"]
 |===
 | `offsite/never-ran` | RED | the log has no runs at all — the job never ran, or its script doesn't write the documented markers
-| `offsite/failed` | RED | the last run exited non-zero (or never logged a finish line — a killed run)
+| `offsite/log-unreadable` | RED | the configured sync log cannot be read, so off-site freshness cannot be verified
+| `offsite/in-progress` | YELLOW | the first observed run is inside `maxRunAgeHours` and has not completed yet
+| `offsite/failed` | RED | the last *completed* run exited non-zero
 | `offsite/stale` | RED | no successful run within `maxSyncAgeHours`
+| `offsite/hung` | RED | a current run has no finish marker after `maxRunAgeHours`
 |===
 
 NOTE: `pbsOffsite` (below) is the older, single-job PBS-specific flavor of this
@@ -85,6 +88,10 @@ check and keeps working; new configs should prefer `offsiteJobs`.
 | `pbs/gc-stale` | YELLOW | GC hasn't run within `maxGcAgeDays`
 | `pbs/offsite-failed` | RED | the last off-site sync exited non-zero
 | `pbs/offsite-stale` | RED | no successful off-site sync within `maxSyncAgeHours`
+| `pbs/offsite-hung` | RED | a current off-site sync has no finish marker after `maxRunAgeHours`
+| `pbs/offsite-never-ran` | RED | the configured PBS off-site log has no completed run markers
+| `pbs/offsite-log-unreadable` | RED | the configured PBS off-site log cannot be read, so off-site freshness cannot be verified
+| `pbs/offsite-in-progress` | YELLOW | the first observed PBS off-site run is inside `maxRunAgeHours` and has not completed yet
 | `pbs/sync-job-never-ran` | YELLOW | PBS→PBS sync job(s) exist (auto-discovered) but no sync has ever completed
 | `pbs/sync-job-failed` | RED | the last completed PBS sync did not succeed — the second PBS is behind
 | `pbs/sync-job-stale` | RED | no successful PBS sync within `maxSyncJobAgeHours`
@@ -157,6 +164,8 @@ in real labs: the replica keeps its old snapshots and *looks* fine.
 | `zfs/snapshot-stale` | RED | newest ZFS snapshot is older than `maxSnapshotAgeHours`
 | `cloudsync/failed` | RED | a cloud-sync task's last run failed
 | `cloudsync/stale` | RED | a cloud-sync task hasn't succeeded within `maxSyncAgeHours`
+| `cloudsync/hung` | RED | a cloud-sync task remains running beyond `maxRunAgeHours`
+| `cloudsync/in-progress` | YELLOW | a cloud-sync task is running inside `maxRunAgeHours`; prior completed freshness is unavailable
 | `cloudsync/disabled` | YELLOW | a configured cloud-sync task is disabled
 | `cloudsync/not-off-box` | YELLOW | a top-level dataset is covered by no cloud-sync task — its data never leaves the box
 |===

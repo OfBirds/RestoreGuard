@@ -85,4 +85,16 @@ public class TrueNasProviderTests
             ["ssd_pool_one/backups", "ssd_pool_one/files", "ssd_pool_one/management", "ssd_pool_one/misc"],
             syncs.Select(a => a.TargetService).Order(StringComparer.Ordinal).ToList());
     }
+
+    [Fact]
+    public void RunningCloudSyncUsesStartTime()
+    {
+        const string json = """[{"id":7,"description":"push","path":"/mnt/tank/data","direction":"PUSH","enabled":true,"attributes":{},"job":{"state":"RUNNING","time_started":{"$date":1783126802000},"time_finished":null}}]""";
+
+        var task = Assert.Single(TrueNasParsers.ParseCloudSyncTasks(json));
+
+        Assert.Equal("RUNNING", task.JobState);
+        Assert.NotNull(task.TimeStarted);
+        Assert.Null(task.TimeFinished);
+    }
 }

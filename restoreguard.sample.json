@@ -74,7 +74,8 @@
     "alias": "mytruenas",
     "excludeDatasets": [],
     "maxSnapshotAgeHours": 26,
-    "maxSyncAgeHours": 26
+    "maxSyncAgeHours": 26,
+    "maxRunAgeHours": 6
   },
 
   // SQLite hot-copy detection: rsync/plain-copy backup folders of app data
@@ -100,7 +101,8 @@
       "alias": "mypve",
       "logPath": "/var/log/pbs-onedrive-sync.log",
       "rcloneRemote": "onedrive:",
-      "maxSyncAgeHours": 26
+      "maxSyncAgeHours": 26,
+      "maxRunAgeHours": 6
     },
     {
       // log-only: no capacity probe.
@@ -117,7 +119,8 @@
     "logPath": "/var/log/pbs-onedrive-sync.log",
     "rcloneRemote": "onedrive:",
     "targetName": "pbs-nvme",
-    "maxSyncAgeHours": 26
+    "maxSyncAgeHours": 26,
+    "maxRunAgeHours": 6
   },
 
   // PBS GC + verify-job hygiene, read by running proxmox-backup-manager inside the

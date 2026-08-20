@@ -506,7 +506,7 @@ public class WizardTests : IDisposable
             "", "");
 
         Assert.True(ok);
-        Assert.Contains("log readable — last run 2026-07-04 05:00, rc=0", output);
+        Assert.Contains("log readable — last completed run 2026-07-04 05:00, rc=0", output);
         Assert.Contains("remote answers `rclone about`", output);
         Assert.Contains("1 off-site job(s)", output);
         var config = RestoreGuardConfig.Load(ConfigPath);

@@ -15,6 +15,7 @@ public sealed record CloudSyncTask(
     string Direction,
     bool Enabled,
     string? JobState,
+    DateTimeOffset? TimeStarted,
     DateTimeOffset? TimeFinished,
     string? DestinationFolder);
 
@@ -90,6 +91,7 @@ public static partial class TrueNasParsers
                 Direction: el.GetProperty("direction").GetString() ?? "",
                 Enabled: el.TryGetProperty("enabled", out var en) && en.GetBoolean(),
                 JobState: hasJob && job.TryGetProperty("state", out var st) ? st.GetString() : null,
+                TimeStarted: hasJob ? MiddlewareJson.GetDate(job, "time_started") : null,
                 TimeFinished: hasJob ? MiddlewareJson.GetDate(job, "time_finished") : null,
                 DestinationFolder: el.TryGetProperty("attributes", out var attrs)
                     && attrs.ValueKind == JsonValueKind.Object

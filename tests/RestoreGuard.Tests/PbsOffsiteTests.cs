@@ -25,16 +25,20 @@ public class PbsOffsiteTests
     }
 
     [Fact]
-    public void FailedRunAndUnfinishedRunReportNonZeroRc()
+    public void ParserKeepsCompletedSuccessWhenNewRunIsInProgress()
     {
         var failed = PbsOffsiteProvider.ParseLastRun(
             "=== 2026-07-03 05:00 CEST sync start ===\n=== sync finished rc=1 ===\n");
         Assert.Equal(1, failed!.Value.Rc);
 
-        // A start with no finish line = killed mid-run; must not count as success.
-        var unfinished = PbsOffsiteProvider.ParseLastRun(
-            "=== 2026-07-03 05:00 CEST sync start ===\n2026/07/03 05:01:00 NOTICE: transferring\n");
-        Assert.Equal(-1, unfinished!.Value.Rc);
+        var runs = PbsOffsiteProvider.ParseRuns(
+            "=== 2026-07-02 05:00 CEST sync start ===\n=== sync finished rc=0 ===\n"
+            + "=== 2026-07-03 05:00 CEST sync start ===\n2026/07/03 05:01:00 NOTICE: transferring\n");
+        Assert.Equal(0, runs.LastCompleted!.Value.Rc);
+        Assert.Equal(new DateOnly(2026, 7, 3), DateOnly.FromDateTime(runs.ActiveStart!.Value.UtcDateTime));
+
+        Assert.Null(PbsOffsiteProvider.ParseLastRun(
+            "=== 2026-07-03 05:00 CEST sync start ===\n"));
 
         Assert.Null(PbsOffsiteProvider.ParseLastRun("no sync lines here"));
     }
@@ -54,7 +58,7 @@ public class PbsOffsiteTests
     [Fact]
     public void FailedSyncIsRed_StaleSyncIsRed()
     {
-        var check = new PbsOffsiteCheck(new PbsOffsiteOptions("lab99", TimeSpan.FromHours(26)));
+        var check = new PbsOffsiteCheck(new PbsOffsiteOptions("lab99", "pbs-nvme", TimeSpan.FromHours(26)));
 
         BackupArtifact Sync(DateTimeOffset ts, string status) => new(
             BackupTier.CloudSync, "pbs-nvme", "onedrive:", ts, 0, "rclone-pbs-offsite", true, status);
@@ -66,5 +70,61 @@ public class PbsOffsiteTests
         Assert.Equal(("pbs/offsite-stale", Severity.Red), (stale.RuleId, stale.Severity));
 
         Assert.Empty(check.Evaluate(new LabInventory(Now, [], [Sync(Now.AddHours(-7), "ok")], [])));
+    }
+
+    [Fact]
+    public void ParserUsesNumericZoneOrCapturedHostOffset_ForActiveRunAge()
+    {
+        var numeric = PbsOffsiteProvider.ParseRuns(
+            "=== 2026-08-20 02:00 -07:00 sync start ===\n");
+        Assert.Equal(new DateTimeOffset(2026, 8, 20, 9, 0, 0, TimeSpan.Zero), numeric.ActiveStart);
+
+        var legacy = PbsOffsiteProvider.ParseRuns(
+            "=== 2026-08-20 02:00 PDT sync start ===\n=== restoreguard timezone -07:00 ===\n");
+        Assert.Equal(new DateTimeOffset(2026, 8, 20, 9, 0, 0, TimeSpan.Zero), legacy.ActiveStart);
+    }
+
+    [Fact]
+    public void FreshActiveRunKeepsPriorSuccessHealthy_ButHungRunIsRed()
+    {
+        var check = new PbsOffsiteCheck(new PbsOffsiteOptions("lab99", "pbs-nvme", TimeSpan.FromHours(26), TimeSpan.FromHours(2)));
+        BackupArtifact Sync(DateTimeOffset ts, string status) => new(
+            BackupTier.CloudSync, "pbs-nvme", "onedrive:", ts, 0, "rclone-pbs-offsite", true, status);
+
+        var healthy = new LabInventory(Now, [], [Sync(Now.AddHours(-24), "ok"), Sync(Now.AddMinutes(-30), "running")], []);
+        Assert.Empty(check.Evaluate(healthy));
+
+        var hung = new LabInventory(Now, [], [Sync(Now.AddHours(-24), "ok"), Sync(Now.AddHours(-3), "running")], []);
+        var finding = Assert.Single(check.Evaluate(hung));
+        Assert.Equal(("pbs/offsite-hung", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
+    public void NoLegacyMarkersIsNeverRanRed()
+    {
+        var check = new PbsOffsiteCheck(new PbsOffsiteOptions("lab99", "pbs-nvme", TimeSpan.FromHours(26)));
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [], [])));
+        Assert.Equal(("pbs/offsite-never-ran", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
+    public void UnreadableLog_IsRedAndNotMislabelledAsNeverRan()
+    {
+        var check = new PbsOffsiteCheck(new PbsOffsiteOptions(
+            "lab99", "pbs-nvme", TimeSpan.FromHours(26), LogError: "permission denied"));
+
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [], [])));
+        Assert.Equal(("pbs/offsite-log-unreadable", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
+    public void FirstFreshRunIsYellowInProgress_NotNeverRan()
+    {
+        var check = new PbsOffsiteCheck(new PbsOffsiteOptions("lab99", "pbs-nvme", TimeSpan.FromHours(26)));
+        BackupArtifact Sync(DateTimeOffset ts, string status) => new(
+            BackupTier.CloudSync, "pbs-nvme", "onedrive:", ts, 0, "rclone-pbs-offsite", true, status);
+
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [Sync(Now.AddMinutes(-30), "running")], [])));
+        Assert.Equal(("pbs/offsite-in-progress", Severity.Yellow), (finding.RuleId, finding.Severity));
     }
 }
