@@ -101,6 +101,11 @@ Six new checks, all live-verified against the development lab before release.
   RED `offsite/never-ran` instead of silently checking nothing. `pbsOffsite`
   keeps working as the legacy single-job flavor. Wizard section parses the log
   live (shows the last run + rc before accepting); doctor preflights log + remote.
+- **Active off-site sync state:** an unfinished current run no longer overwrites
+  the last completed result. `maxRunAgeHours` bounds the execution window; a
+  job that exceeds it emits a RED hung finding instead of being treated as a
+  successful or immediately failed mirror. A first observed log run and a
+  fresh TrueNAS RUNNING task are explicitly YELLOW, never silently green.
 - **ZFS snapshot & replication check** (`zfsReplications`): sanoid/syncoid or
   plain `zfs send` on any SSH host. Source dataset must keep getting snapshots
   (`zfs-replication/no-snapshots`, `/snapshot-stale`); a configured replica's

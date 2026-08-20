@@ -149,7 +149,7 @@ SQLite database next to it was copied while open (the silently-corrupt backup).
 "offsiteJobs": [
   { "name": "pbs to onedrive", "alias": "mypve",
     "logPath": "/var/log/pbs-onedrive-sync.log",
-    "rcloneRemote": "onedrive:", "maxSyncAgeHours": 26 },
+    "rcloneRemote": "onedrive:", "maxSyncAgeHours": 26, "maxRunAgeHours": 6 },
   // log-only (no capacity probe — e.g. a backend without `rclone about`):
   { "name": "nightly usb copy", "alias": "myotherhost",
     "logPath": "/var/log/usb-sync.log" }
@@ -175,6 +175,10 @@ remote must authenticate.
 
 NOTE: `pbsOffsite` is the older single-job flavor of this section and keeps
 working; new configs should prefer `offsiteJobs`.
+
+`maxRunAgeHours` (default `6`) bounds how long a start marker may remain unfinished. While a
+run is inside that window, its preceding completed result remains the freshness
+source; after the window it is RED rather than silently accepted.
 
 == `zfsReplications` — sanoid/syncoid & zfs send
 
@@ -206,7 +210,8 @@ is `zfs list -H -p -t snapshot` (read-only, no `zfs send/recv` is ever run).
   "alias": "mytruenas",
   "excludeDatasets": [],
   "maxSnapshotAgeHours": 26,
-  "maxSyncAgeHours": 26
+  "maxSyncAgeHours": 26,
+  "maxRunAgeHours": 6
 }
 ----
 
@@ -214,6 +219,10 @@ Pool health and scrub age, per-dataset capacity, snapshot freshness, cloud-sync
 task state, and top-level datasets that never leave the box. `excludeDatasets`
 are dropped before they enter the model at all — use it for datasets that are
 intentionally not audited.
+
+`maxRunAgeHours` (default `6`) bounds a TrueNAS cloud-sync task's running state.
+A fresh running task is YELLOW because this query does not include a prior completed result;
+it becomes RED when it exceeds the window.
 
 *Host needs:* a TrueNAS SCALE admin user (`midclt call`, read-only queries).
 
@@ -226,7 +235,8 @@ intentionally not audited.
   "logPath": "/var/log/pbs-sync.log",
   "rcloneRemote": "remote:",
   "targetName": "pbs-datastore",
-  "maxSyncAgeHours": 26
+  "maxSyncAgeHours": 26,
+  "maxRunAgeHours": 6
 }
 ----
 

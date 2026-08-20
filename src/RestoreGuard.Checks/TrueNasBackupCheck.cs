@@ -6,7 +6,11 @@ namespace RestoreGuard.Checks;
 public sealed record TrueNasBackupOptions(
     string Host,
     TimeSpan MaxSnapshotAge,
-    TimeSpan MaxSyncAge);
+    TimeSpan MaxSyncAge,
+    TimeSpan MaxRunAge = default)
+{
+    public TimeSpan EffectiveMaxRunAge => MaxRunAge == default ? TimeSpan.FromHours(6) : MaxRunAge;
+}
 
 /// <summary>
 /// Tier-4 checks: daily ZFS auto-snapshots fresh per dataset, cloud-sync push tasks
@@ -32,11 +36,30 @@ public sealed class TrueNasBackupCheck(TrueNasBackupOptions options) : ICheck
             }
         }
 
-        var pushTasks = inventory.Backups.Where(b => b.Tier == BackupTier.CloudSync).ToList();
+        var pushTasks = inventory.Backups
+            .Where(b => b.Tier == BackupTier.CloudSync && b.Method == "rclone-push")
+            .ToList();
         foreach (var task in pushTasks)
         {
             switch (task.Status)
             {
+                case "running":
+                    var runAge = inventory.CapturedAt - task.Timestamp;
+                    if (runAge > options.EffectiveMaxRunAge)
+                    {
+                        yield return new Finding(
+                            "cloudsync/hung", Severity.Red, task.TargetService, options.Host,
+                            $"{task.Location}: task has remained running for {runAge.TotalHours:F0}h (limit {options.EffectiveMaxRunAge.TotalHours:F0}h).",
+                            "Check the TrueNAS job log; a running task is only healthy within the configured execution window.");
+                    }
+                    else
+                    {
+                        yield return new Finding(
+                            "cloudsync/in-progress", Severity.Yellow, task.TargetService, options.Host,
+                            $"{task.Location}: task is running; prior completed freshness is not available from this TrueNAS query.",
+                            "Wait for completion; a run that exceeds the execution window becomes RED.");
+                    }
+                    break;
                 case "failed":
                     yield return new Finding(
                         "cloudsync/failed", Severity.Red, task.TargetService, options.Host,

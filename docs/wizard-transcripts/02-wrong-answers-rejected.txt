@@ -137,7 +137,7 @@ Job #1: SSH destination of the machine running it (Enter = skip): «pve»
 Job #1: SSH destination of the machine running it (Enter = skip): «pve»
   testing  ssh pve 'echo ok'  ... OK
   path of the job's log file: «/var/log/offsite-sync.log»
-  checking ... OK — log readable — last run 2026-07-04 05:00, rc=0
+  checking ... OK — log readable — last completed run 2026-07-04 05:00, rc=0
   rclone remote to watch for capacity (e.g. onedrive: ; Enter = skip capacity): «badremote:»
   checking ... PROBLEM — `rclone about` failed — check the remote name (some backends don't support about)
   Keep this value anyway? [y/N]: «n»
@@ -254,7 +254,8 @@ Wizard result: config written
     "alias": "truenas",
     "excludeDatasets": [],
     "maxSnapshotAgeHours": 26,
-    "maxSyncAgeHours": 26
+    "maxSyncAgeHours": 26,
+    "maxRunAgeHours": 6
   },
   "smartHosts": [
     "hypervisor"
@@ -285,7 +286,8 @@ Wizard result: config written
       "name": "offsite pve offsite-sync",
       "alias": "pve",
       "logPath": "/var/log/offsite-sync.log",
-      "maxSyncAgeHours": 26
+      "maxSyncAgeHours": 26,
+      "maxRunAgeHours": 6
     }
   ],
   "sqliteBackupDirs": [

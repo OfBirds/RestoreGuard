@@ -34,7 +34,7 @@ public class OffsiteJobTests
     [Fact]
     public async Task JobWithRemote_TailsLogAndAsksAbout()
     {
-        var ssh = new FakeOffsiteSsh(cmd => cmd.StartsWith("tail")
+        var ssh = new FakeOffsiteSsh(cmd => cmd.Contains("grep -E")
             ? new SshResult(0, Fixtures.Read("pbs-sync-log-tail.txt"), "")
             : new SshResult(0, """{"total":100,"free":40}""", ""));
 
@@ -42,7 +42,10 @@ public class OffsiteJobTests
             new OffsiteJobConfig("onedrive push", "lab99", "/var/log/pbs-onedrive-sync.log", "onedrive:"));
 
         Assert.Equal(2, ssh.Commands.Count);
-        Assert.Contains("tail -n 200 '/var/log/pbs-onedrive-sync.log'", ssh.Commands[0]);
+        Assert.Contains("grep -E '^=== ' '/var/log/pbs-onedrive-sync.log'", ssh.Commands[0]);
+        Assert.Contains("tail -n 200", ssh.Commands[0]);
+        Assert.Contains("restoreguard timezone %s", ssh.Commands[0]);
+        Assert.Contains("$(date +%:z)", ssh.Commands[0]);
         Assert.Contains("rclone about onedrive: --json", ssh.Commands[1]);
         // The fixture's last run is 2026-07-04 05:00 with rc=0 (the rc=1 run before it must not win).
         Assert.Equal(("onedrive push", "rclone-offsite", "ok"),
@@ -91,6 +94,51 @@ public class OffsiteJobTests
         Assert.Equal(2, findings.Count);
         Assert.Equal("offsite/failed", Assert.Single(findings, f => f.Service == "failed job").RuleId);
         Assert.Equal("offsite/stale", Assert.Single(findings, f => f.Service == "stale job").RuleId);
+    }
+
+    [Fact]
+    public void UnreadableLog_IsRedAndNotMislabelledAsNeverRan()
+    {
+        var check = new OffsiteJobCheck([Expect() with { LogError = "permission denied" }]);
+
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [], [])));
+        Assert.Equal(("offsite/log-unreadable", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
+    public async Task CapacityProbeFailure_PreservesReadableLogState()
+    {
+        var ssh = new FakeOffsiteSsh(cmd => cmd.Contains("grep -E")
+            ? new SshResult(0, Fixtures.Read("pbs-sync-log-tail.txt"), "")
+            : new SshResult(1, "", "expired token"));
+
+        var state = await new PbsOffsiteProvider(ssh).GetJobAsync(
+            new OffsiteJobConfig("onedrive push", "lab99", "/var/log/pbs-onedrive-sync.log", "onedrive:"));
+
+        Assert.Equal("ok", state.LastSync!.Status);
+        Assert.Null(state.Remote);
+        Assert.Contains("rclone about onedrive: --json", state.RemoteError);
+    }
+
+    [Fact]
+    public void FreshActiveJobKeepsPriorSuccessHealthy_ButHungJobIsRed()
+    {
+        var check = new OffsiteJobCheck([new OffsiteJobExpectation("onedrive push", "lab99", TimeSpan.FromHours(26), TimeSpan.FromHours(2))]);
+
+        var healthy = new LabInventory(Now, [], [Sync("onedrive push", Now.AddHours(-24), "ok"), Sync("onedrive push", Now.AddMinutes(-30), "running")], []);
+        Assert.Empty(check.Evaluate(healthy));
+
+        var hung = new LabInventory(Now, [], [Sync("onedrive push", Now.AddHours(-24), "ok"), Sync("onedrive push", Now.AddHours(-3), "running")], []);
+        var finding = Assert.Single(check.Evaluate(hung));
+        Assert.Equal(("offsite/hung", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
+    public void FirstFreshRunIsYellowInProgress_NotNeverRan()
+    {
+        var check = new OffsiteJobCheck([Expect()]);
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [Sync("onedrive push", Now.AddMinutes(-30), "running")], [])));
+        Assert.Equal(("offsite/in-progress", Severity.Yellow), (finding.RuleId, finding.Severity));
     }
 
     [Fact]

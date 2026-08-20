@@ -14,7 +14,7 @@ public enum BackupTier
 /// <summary>
 /// A concrete backup output found on a target (a PBS snapshot, a dump file, a ZFS
 /// snapshot, a cloud-sync run…). Status carries the producer's own verdict when it
-/// has one ("ok", "failed", "disabled"); null means the producer reports none.
+/// has one ("ok", "failed", "disabled", "running"); null means the producer reports none.
 /// </summary>
 public sealed record BackupArtifact(
     BackupTier Tier,
@@ -24,6 +24,7 @@ public sealed record BackupArtifact(
     long SizeBytes,
     string? Method,
     bool HasOffsiteCopy,
+    // Status is provider-specific but uses "ok", "failed", "disabled", or "running" where known.
     string? Status = null,
     // The host/node physically holding the bytes, when discovery knows it
     // (null = unknown). What lets the 3-2-1 check tell "backup on the box it

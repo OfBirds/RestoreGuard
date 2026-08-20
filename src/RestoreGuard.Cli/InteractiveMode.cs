@@ -375,10 +375,12 @@ public static class InteractiveMode
                         var r = await ssh.RunAsync(alias, $"tail -n 200 {Sh(p)}");
                         if (r.ExitCode != 0)
                             return (false, "log not readable there — check the path");
-                        var lastRun = Providers.Offsite.PbsOffsiteProvider.ParseLastRun(r.StdOut);
-                        return lastRun is null
-                            ? (false, "log readable, but it has no '=== <ts> ... sync start ===' lines — the audit would report offsite/never-ran (keep anyway if the job just hasn't run yet)")
-                            : (true, $"log readable — last run {lastRun.Value.Start:yyyy-MM-dd HH:mm}, rc={lastRun.Value.Rc}");
+                        var runs = Providers.Offsite.PbsOffsiteProvider.ParseRuns(r.StdOut);
+                        return runs.LastCompleted is { } lastRun
+                            ? (true, $"log readable — last completed run {lastRun.Start:yyyy-MM-dd HH:mm}, rc={lastRun.Rc}")
+                            : runs.ActiveStart is { } active
+                                ? (true, $"log readable — sync started {active:yyyy-MM-dd HH:mm} and is still running")
+                                : (false, "log readable, but it has no '=== <ts> ... sync start ===' lines — the audit would report offsite/never-ran (keep anyway if the job just hasn't run yet)");
                     });
                 if (logPath.Length == 0)
                 {

@@ -123,6 +123,8 @@ public sealed record RestoreGuardConfig(
 
         if (TrueNas is { } tn && string.IsNullOrWhiteSpace(tn.Alias))
             errors.Add("trueNas.alias is empty.");
+        if (TrueNas is { } trueNas && trueNas.MaxRunAgeHours <= 0)
+            errors.Add("trueNas.maxRunAgeHours must be positive.");
 
         foreach (var (h, i) in (SmartHosts ?? []).Select((h, i) => (h, i)))
         {
@@ -164,6 +166,7 @@ public sealed record RestoreGuardConfig(
             if (string.IsNullOrWhiteSpace(o.Name)) errors.Add($"offsiteJobs[{i}].name is empty.");
             if (string.IsNullOrWhiteSpace(o.Alias)) errors.Add($"offsiteJobs[{i}].alias is empty.");
             if (string.IsNullOrWhiteSpace(o.LogPath)) errors.Add($"offsiteJobs[{i}].logPath is empty.");
+            if (o.MaxRunAgeHours <= 0) errors.Add($"offsiteJobs[{i}].maxRunAgeHours must be positive.");
         }
 
         foreach (var (s, i) in (SqliteBackupDirs ?? []).Select((s, i) => (s, i)))
@@ -175,6 +178,8 @@ public sealed record RestoreGuardConfig(
 
         if (PbsOffsite is { } off && string.IsNullOrWhiteSpace(off.Alias))
             errors.Add("pbsOffsite.alias is empty.");
+        if (PbsOffsite is { } pbsOffsite && pbsOffsite.MaxRunAgeHours <= 0)
+            errors.Add("pbsOffsite.maxRunAgeHours must be positive.");
         if (PbsMaintenance is { } pm && string.IsNullOrWhiteSpace(pm.ExecAlias))
             errors.Add("pbsMaintenance.execAlias is empty.");
 
@@ -217,14 +222,16 @@ public sealed record TrueNasCliConfig(
     string Alias,
     IReadOnlyList<string> ExcludeDatasets,
     double MaxSnapshotAgeHours = 26,
-    double MaxSyncAgeHours = 26);
+    double MaxSyncAgeHours = 26,
+    double MaxRunAgeHours = 6);
 
 public sealed record PbsOffsiteCliConfig(
     string Alias,
     string LogPath,
     string RcloneRemote,
     string TargetName,
-    double MaxSyncAgeHours = 26);
+    double MaxSyncAgeHours = 26,
+    double MaxRunAgeHours = 6);
 
 public sealed record PbsMaintenanceCliConfig(
     string ExecAlias,

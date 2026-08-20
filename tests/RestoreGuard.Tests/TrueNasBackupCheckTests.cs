@@ -62,6 +62,19 @@ public class TrueNasBackupCheckTests
     }
 
     [Fact]
+    public void FreshRunningSyncIsQuiet_ButHungSyncIsRed()
+    {
+        var check = new TrueNasBackupCheck(new TrueNasBackupOptions(
+            "truenas", TimeSpan.FromHours(26), TimeSpan.FromHours(26), TimeSpan.FromHours(2)));
+
+        var inProgress = Assert.Single(check.Evaluate(new LabInventory(Now, [], [Sync("ssd_pool_one/files", Now.AddMinutes(-30), "running")], [])));
+        Assert.Equal(("cloudsync/in-progress", Severity.Yellow), (inProgress.RuleId, inProgress.Severity));
+
+        var finding = Assert.Single(check.Evaluate(new LabInventory(Now, [], [Sync("ssd_pool_one/files", Now.AddHours(-3), "running")], [])));
+        Assert.Equal(("cloudsync/hung", Severity.Red), (finding.RuleId, finding.Severity));
+    }
+
+    [Fact]
     public void TopLevelDatasetWithoutPushTaskIsYellow()
     {
         var inventory = new LabInventory(Now, [],

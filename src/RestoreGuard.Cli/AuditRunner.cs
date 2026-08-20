@@ -149,7 +149,9 @@ public static class AuditRunner
         if (offsite is not null)
         {
             if (offsite.LastSync is not null) artifacts.Add(offsite.LastSync);
-            storage.Add(offsite.Remote);
+            if (offsite.ActiveSync is not null) artifacts.Add(offsite.ActiveSync);
+            if (offsite.Remote is not null) storage.Add(offsite.Remote);
+            if (offsite.RemoteError is not null) providerErrors.Add($"{offHost}: {offsite.RemoteError}");
         }
         if (offError is not null) providerErrors.Add($"{offHost}: {offError}");
 
@@ -158,7 +160,9 @@ public static class AuditRunner
             if (jobState is not null)
             {
                 if (jobState.LastSync is not null) artifacts.Add(jobState.LastSync);
+                if (jobState.ActiveSync is not null) artifacts.Add(jobState.ActiveSync);
                 if (jobState.Remote is not null) storage.Add(jobState.Remote);
+                if (jobState.RemoteError is not null) providerErrors.Add($"{jobHost}: {jobState.RemoteError}");
             }
             if (jobError is not null) providerErrors.Add($"{jobHost}: {jobError}");
         }
@@ -229,17 +233,23 @@ public static class AuditRunner
             checks.Add(new TrueNasBackupCheck(new TrueNasBackupOptions(
                 tnc.Alias,
                 TimeSpan.FromHours(tnc.MaxSnapshotAgeHours),
-                TimeSpan.FromHours(tnc.MaxSyncAgeHours))));
+                TimeSpan.FromHours(tnc.MaxSyncAgeHours),
+                TimeSpan.FromHours(tnc.MaxRunAgeHours))));
         }
         if (config.PbsOffsite is { } offc)
         {
             checks.Add(new PbsOffsiteCheck(new PbsOffsiteOptions(
-                offc.Alias, TimeSpan.FromHours(offc.MaxSyncAgeHours))));
+                offc.Alias, offc.TargetName, TimeSpan.FromHours(offc.MaxSyncAgeHours), TimeSpan.FromHours(offc.MaxRunAgeHours), offError)));
         }
         if (config.OffsiteJobs is { Count: > 0 } jobs)
         {
-            checks.Add(new OffsiteJobCheck(jobs
-                .Select(o => new OffsiteJobExpectation(o.Name, o.Alias, TimeSpan.FromHours(o.MaxSyncAgeHours)))
+            var expectations = jobs.Zip(offsiteJobTasks, (job, task) =>
+            {
+                var result = task.Result;
+                return new OffsiteJobExpectation(job.Name, job.Alias,
+                    TimeSpan.FromHours(job.MaxSyncAgeHours), TimeSpan.FromHours(job.MaxRunAgeHours), result.Item3);
+            }).ToList();
+            checks.Add(new OffsiteJobCheck(expectations
                 .ToList()));
         }
         if (maintenance is not null && config.PbsMaintenance is { } pmc)
