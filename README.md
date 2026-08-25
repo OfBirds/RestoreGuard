@@ -62,6 +62,8 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
 - **Off-site freshness & capacity** — every scheduled rclone sync job actually
   ran, succeeded, and is recent (a job that never ran is RED, not invisible);
   the destination isn't silently full.
+- **Kubernetes / K3s** — Velero coverage and freshness, PVC protection,
+  deployment availability, and node readiness.
 - **Disk health** — SMART status on the hypervisors.
 - **Suppression hygiene** — accepted-risk entries are first-class and fail loud:
   expired or dead suppressions become findings themselves, never silent.
@@ -106,6 +108,7 @@ have. You need:
 | `sqliteBackupDirs` | recursive `find` for `*-wal`/`*-shm` | read access to the backup folder |
 | `pbsOffsite` *(legacy — prefer `offsiteJobs`)* | `tail` the sync log, `rclone about` | read the log; the host's rclone remote must authenticate |
 | `pbsMaintenance` | `pct exec <CT> -- proxmox-backup-manager` (GC, verify + sync jobs, datastore list); `ls` of `host/<id>` snapshot dirs for `hostBackups` | root on the PVE host that runs the PBS container |
+| `kubernetesClusters` | read-only `kubectl get` for cluster, workload, Velero, PodVolumeBackup, and CSI snapshot resources | SSH access to the configured `kubectl` prefix; for an LXC prefix, root on the PVE host for `pct exec` |
 | `smartHosts` | `smartctl -H` | root (raw device access); smartmontools installed |
 
 Targets are assumed Linux-ish with standard tools (GNU `find`, `awk`, `tail`).

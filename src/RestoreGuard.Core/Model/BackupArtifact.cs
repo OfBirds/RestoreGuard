@@ -9,6 +9,7 @@ public enum BackupTier
     ZfsSnapshot,
     CloudSync,
     FileBackup,
+    KubernetesBackup,
 }
 
 /// <summary>

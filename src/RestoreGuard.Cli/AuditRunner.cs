@@ -11,6 +11,7 @@ using RestoreGuard.Providers.Offsite;
 using RestoreGuard.Providers.Pve;
 using RestoreGuard.Providers.Smart;
 using RestoreGuard.Providers.TrueNas;
+using RestoreGuard.Providers.Kubernetes;
 
 namespace RestoreGuard.Cli;
 
@@ -22,6 +23,7 @@ public static class AuditRunner
         var suppressions = config.LoadSuppressions(configDir);
 
         var docker = new DockerProvider(ssh);
+        var kubernetes = new KubernetesProvider(ssh, Progress);
         var dbDump = new DbDumpProvider(ssh);
         var pve = new PveProvider(ssh);
 
@@ -38,6 +40,9 @@ public static class AuditRunner
 
         var dockerTasks = config.DockerHosts
             .Select(h => Track("docker", h.Alias, docker.GetServicesAsync(h)))
+            .ToList();
+        var kubernetesTasks = (config.KubernetesClusters ?? [])
+            .Select(c => Track("k8s", c.Alias, kubernetes.GetClusterAsync(c)))
             .ToList();
         var pveTasks = (config.PveNodes ?? [])
             .Select(n => Track("pve", n.Alias, pve.GetNodeAsync(n)))
@@ -89,7 +94,9 @@ public static class AuditRunner
                     dd.DashboardHostAliases.Select(a => new DockerHostConfig(a)).ToList()))
             : Task.FromResult<(string, DashboardProvider.DashboardProbeResult?, string?)>(("", null, null));
 
-        Progress($"auditing: {probes.Count} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
+        var kubernetesSurfaceCount = (config.KubernetesClusters ?? []).Sum(cluster => KubernetesProvider.EnabledSurfaces(cluster).Count);
+        var displayedProbeCount = probes.Count - kubernetesTasks.Count + kubernetesSurfaceCount;
+        Progress($"auditing: {displayedProbeCount} probe(s) across the lab, in parallel (Ctrl+C stops and reports what finished)...");
 
         var discovery = Stopwatch.StartNew();
         var all = Task.WhenAll(probes.Select(p => p.Task));
@@ -106,9 +113,26 @@ public static class AuditRunner
         var artifacts = new List<BackupArtifact>();
         var providerErrors = new List<string>();
 
+        // A cluster-level service makes every cluster-wide Kubernetes finding a stable
+        // suppression target even when its provider fails before yielding any inventory.
+        services.AddRange((config.KubernetesClusters ?? []).Select(cluster =>
+            new Service($"{cluster.Name} cluster", cluster.Name, ServiceKind.K8sCluster, "unknown", null, [], null)));
+
         foreach (var (host, result, error) in dockerTasks.Select(t => t.Result))
         {
             if (result is not null) services.AddRange(result);
+            if (error is not null) providerErrors.Add($"{host}: {error}");
+        }
+
+        var kubernetesStates = new List<KubernetesState>();
+        foreach (var (host, result, error) in kubernetesTasks.Select(t => t.Result))
+        {
+            if (result is not null)
+            {
+                services.AddRange(result.Services);
+                artifacts.AddRange(result.Backups);
+                kubernetesStates.Add(result.State);
+            }
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
@@ -282,6 +306,18 @@ public static class AuditRunner
         if (config.DashboardDrift is { })
         {
             checks.Add(new DashboardRegistrationDriftCheck());
+        }
+        if (config.KubernetesClusters is { Count: > 0 } clusters)
+        {
+            var expectations = clusters.Zip(kubernetesTasks, (cluster, task) =>
+            {
+                var result = task.Result;
+                return new KubernetesExpectation(cluster.Name, cluster.Alias,
+                    TimeSpan.FromHours(cluster.MaxBackupAgeHours), cluster.CheckWorkloads,
+                    cluster.VeleroNamespace is not null, result.Item3);
+            }).ToList();
+            checks.Add(new KubernetesCheck(kubernetesStates,
+                expectations));
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);

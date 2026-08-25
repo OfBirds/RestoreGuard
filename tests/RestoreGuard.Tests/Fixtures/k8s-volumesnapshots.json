@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "namespace": "apps",
+        "name": "data-snapshot",
+        "labels": { "velero.io/backup-name": "nightly-20260825" }
+      },
+      "spec": { "source": { "persistentVolumeClaimName": "data" } },
+      "status": { "readyToUse": true }
+    }
+  ]
+}

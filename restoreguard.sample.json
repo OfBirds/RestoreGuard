@@ -218,6 +218,21 @@
     "dashboardHostAliases": ["mydockerhost", "myotherhost"]
   },
 
+  // Kubernetes / K3s clusters. This is config-file-only in the v1 wizard.
+  // kubectl is a command PREFIX executed on alias (for sshd-less LXC use
+  // e.g. "pct exec 601 -- k3s kubectl"). veleroNamespace: null explicitly
+  // disables Velero checks; omission defaults to "velero".
+  "kubernetesClusters": [
+    {
+      "name": "homelab k3s",
+      "alias": "mypve",
+      "kubectl": "kubectl",
+      "veleroNamespace": "velero",
+      "maxBackupAgeHours": 26,
+      "checkWorkloads": true
+    }
+  ],
+
   // Where each audit DELIVERS its JSON report (the same document --json prints).
   // The destinations live in their OWN self-contained file so a SECOND tool — e.g.
   // HCC — can read the SAME file, connect to the same folder/bucket/DB, and pull the

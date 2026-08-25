@@ -2,6 +2,7 @@ using System.Text.Json;
 using RestoreGuard.Core;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
+using RestoreGuard.Providers.Kubernetes;
 
 namespace RestoreGuard.Cli;
 
@@ -26,7 +27,8 @@ public sealed record RestoreGuardConfig(
     // section still works but is the legacy form; the wizard writes the file.
     string? ReportingFile = null,
     ReportingConfig? Reporting = null,
-    DashboardDriftCliConfig? DashboardDrift = null)
+    DashboardDriftCliConfig? DashboardDrift = null,
+    IReadOnlyList<KubernetesClusterConfig>? KubernetesClusters = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -194,9 +196,30 @@ public sealed record RestoreGuardConfig(
             }
         }
 
+        var kubernetesNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (cluster, i) in (KubernetesClusters ?? []).Select((c, i) => (c, i)))
+        {
+            if (string.IsNullOrWhiteSpace(cluster.Name)) errors.Add($"kubernetesClusters[{i}].name is empty.");
+            else if (!kubernetesNames.Add(cluster.Name)) errors.Add($"kubernetesClusters[{i}].name '{cluster.Name}' is duplicated.");
+            if (string.IsNullOrWhiteSpace(cluster.Alias)) errors.Add($"kubernetesClusters[{i}].alias is empty.");
+            if (string.IsNullOrWhiteSpace(cluster.Kubectl)) errors.Add($"kubernetesClusters[{i}].kubectl is empty.");
+            if (cluster.VeleroNamespace is { } ns && !IsKubernetesNamespace(ns))
+                errors.Add($"kubernetesClusters[{i}].veleroNamespace '{ns}' is not a valid Kubernetes namespace.");
+            if (cluster.VeleroNamespace is null && !cluster.CheckWorkloads)
+                errors.Add($"kubernetesClusters[{i}] disables both Velero and workload checks, so it would audit nothing.");
+            if (cluster.MaxBackupAgeHours <= 0) errors.Add($"kubernetesClusters[{i}].maxBackupAgeHours must be positive.");
+        }
+
         Reporting?.Validate(errors);
 
         return errors;
+    }
+
+    private static bool IsKubernetesNamespace(string value)
+    {
+        if (value.Length is < 1 or > 63 || value[0] == '-' || value[^1] == '-')
+            return false;
+        return value.All(c => (c is >= 'a' and <= 'z') || char.IsAsciiDigit(c) || c == '-');
     }
 
     public IReadOnlyList<Suppression> LoadSuppressions(string configDir)

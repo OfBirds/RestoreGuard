@@ -66,6 +66,31 @@ A list — one entry per dump job you run. Dump files are expected to be named
 
 *Host needs:* read access to the dump directory.
 
+== `kubernetesClusters` — Kubernetes / K3s
+
+[source,json]
+----
+"kubernetesClusters": [
+  { "name": "homelab k3s", "alias": "mypve",
+    "kubectl": "pct exec 601 -- k3s kubectl", "veleroNamespace": "velero",
+    "maxBackupAgeHours": 26, "checkWorkloads": true }
+]
+----
+
+Each cluster has a unique `name`, an SSH `alias`, and a non-empty `kubectl`
+command prefix. `veleroNamespace` omitted defaults to `velero`; set it explicitly
+to `null` to disable Velero requirements. `maxBackupAgeHours` must be positive.
+The provider runs read-only node, deployment, PVC, pod, Velero backup, schedule,
+pod-volume-backup, and optional CSI volume-snapshot queries. Each Bound PVC needs a
+completed Velero pod-volume backup or Ready CSI snapshot from the latest successful
+backup; a Backup resource alone is not data-protection evidence.
+Workload checks can be disabled with `checkWorkloads: false`; do not
+disable both workload checks and Velero, because that would audit no surface.
+Kubernetes is not included in the v1 setup wizard; configure it by hand.
+
+*Host needs:* SSH access to a machine with the configured `kubectl` command prefix;
+for an LXC prefix, root access on the PVE host to run `pct exec`.
+
 == `pveNodes` — Proxmox image backups
 
 [source,json]

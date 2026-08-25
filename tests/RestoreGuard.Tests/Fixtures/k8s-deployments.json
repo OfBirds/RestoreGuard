@@ -1,0 +1,1 @@
+{"apiVersion":"apps/v1","items":[{"metadata":{"namespace":"apps","name":"api"},"spec":{"replicas":2},"status":{"availableReplicas":2}},{"metadata":{"namespace":"apps","name":"worker"},"spec":{"replicas":1},"status":{"availableReplicas":0}}]}

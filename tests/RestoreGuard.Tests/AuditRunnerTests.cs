@@ -2,6 +2,7 @@ using System.Text.Json;
 using RestoreGuard.Cli;
 using RestoreGuard.Providers;
 using RestoreGuard.Providers.Docker;
+using RestoreGuard.Providers.Kubernetes;
 
 namespace RestoreGuard.Tests;
 
@@ -82,6 +83,23 @@ public class AuditRunnerTests : IDisposable
         // Even with no reporting section, the report was persisted (default folder).
         Assert.Contains("report ok    folder", progress);
         Assert.True(File.Exists(Path.Combine(_dir.FullName, "default-reports", "latest.json")));
+    }
+
+    [Fact]
+    public async Task KubernetesProviderFailure_IsPartialAndTrackedByClusterAlias()
+    {
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            KubernetesClusters: [new KubernetesClusterConfig("cluster-a", "deadhost")]);
+
+        var (exit, stdout, progress) = await RunAsync(config, _dir.FullName);
+
+        Assert.Equal(1, exit);
+        using var report = JsonDocument.Parse(stdout);
+        Assert.True(report.RootElement.GetProperty("partial").GetBoolean());
+        Assert.Contains(report.RootElement.GetProperty("providerErrors").EnumerateArray().Select(e => e.GetString()),
+            e => e!.Contains("deadhost"));
+        Assert.Contains("auditing: 8 probe(s)", progress);
+        Assert.Contains("FAIL  [k8s] deadhost", progress);
     }
 
     [Fact]

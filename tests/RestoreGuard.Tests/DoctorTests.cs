@@ -1,9 +1,12 @@
 using RestoreGuard.Cli;
+using RestoreGuard.Providers;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
+using RestoreGuard.Providers.Kubernetes;
 
 namespace RestoreGuard.Tests;
 
+[Collection("reports-env")]
 public class DoctorTests
 {
     private static RestoreGuardConfig FullConfig() => new(
@@ -113,5 +116,82 @@ public class DoctorTests
     {
         var config = new RestoreGuardConfig([], null, null, 0, null, null, null, null, null, null);
         Assert.Empty(Doctor.BuildProbes(config));
+    }
+
+    [Fact]
+    public void KubernetesDoctor_ProbesEveryEnabledQueryAndRequiresYes()
+    {
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            KubernetesClusters: [new KubernetesClusterConfig("cluster-a", "pve99")]);
+        var probes = Doctor.BuildProbes(config).Where(p => p.Area == "k8s").ToList();
+
+        Assert.Equal(9, probes.Count);
+        Assert.Contains(probes, p => p.Command == "kubectl get --raw=/readyz > /dev/null");
+        Assert.All(probes.Where(p => p.Command.Contains("auth can-i") && !p.Command.Contains("volumesnapshots.snapshot.storage.k8s.io")), p => Assert.Equal("yes", p.ExpectedStdOut));
+        Assert.Contains(probes, p => p.Command.Contains("list backups.velero.io -n 'velero'"));
+        Assert.Contains(probes, p => p.Command.Contains("list schedules.velero.io -n 'velero'"));
+        Assert.Contains(probes, p => p.Command.Contains("list podvolumebackups.velero.io -n 'velero'"));
+        Assert.Contains(probes, p => p.Command.Contains("list pods --all-namespaces"));
+        Assert.Contains(probes, p => p.Command.Contains("api-resources --api-group=snapshot.storage.k8s.io")
+            && p.Command.Contains("list volumesnapshots.snapshot.storage.k8s.io --all-namespaces")
+            && p.ExpectedStdOut is null);
+        Assert.Contains(probes, p => p.Command.Contains("list deployments.apps --all-namespaces"));
+        Assert.Contains(probes, p => p.Command.Contains("list persistentvolumeclaims --all-namespaces"));
+    }
+
+    [Fact]
+    public void KubernetesDoctor_DisabledVeleroAndWorkloadsHasNoAssociatedQueries()
+    {
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            KubernetesClusters: [new KubernetesClusterConfig("cluster-a", "pve99", VeleroNamespace: null, CheckWorkloads: false)]);
+        var probes = Doctor.BuildProbes(config).Where(p => p.Area == "k8s").ToList();
+
+        Assert.Single(probes);
+        Assert.DoesNotContain(probes, p => p.Command.Contains("auth can-i"));
+    }
+
+    [Fact]
+    public void KubernetesDoctor_VeleroOnlyStillPreflightsPvcCoverage()
+    {
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            KubernetesClusters: [new KubernetesClusterConfig("cluster-a", "pve99", CheckWorkloads: false)]);
+        var probes = Doctor.BuildProbes(config).Where(probe => probe.Area == "k8s").ToList();
+
+        Assert.Equal(7, probes.Count);
+        Assert.Contains(probes, probe => probe.Command.Contains("list persistentvolumeclaims --all-namespaces"));
+        Assert.DoesNotContain(probes, probe => probe.Command.Contains("list nodes"));
+        Assert.DoesNotContain(probes, probe => probe.Command.Contains("list deployments.apps"));
+    }
+
+    [Fact]
+    public async Task KubernetesDoctor_RejectsCanIOutputOtherThanYes()
+    {
+        var reportDir = Directory.CreateTempSubdirectory("rg-doctor-test");
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            Reporting: new ReportingConfig(new FolderSinkConfig(reportDir.FullName)),
+            KubernetesClusters: [new KubernetesClusterConfig("cluster-a", "pve99")]);
+        var output = new StringWriter();
+        var original = Console.Out;
+        try
+        {
+            Console.SetOut(output);
+            var exit = await Doctor.RunAsync(config, new DoctorSsh(), reportDir.FullName);
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetOut(original);
+            reportDir.Delete(recursive: true);
+        }
+
+        Assert.Contains("expected stdout 'yes', got 'no'", output.ToString());
+    }
+
+    private sealed class DoctorSsh : ISshProvider
+    {
+        public Task<SshResult> RunAsync(string alias, string command, CancellationToken ct = default) =>
+            Task.FromResult(command.Contains("auth can-i", StringComparison.Ordinal)
+                ? new SshResult(0, "no\n", "")
+                : new SshResult(0, "", ""));
     }
 }
