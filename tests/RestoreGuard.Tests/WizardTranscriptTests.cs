@@ -73,6 +73,9 @@ public class WizardTranscriptTests
                 "y", "nas", "/backups/appdata", "",          // sqlite scan: clean folder, name default
                 "",                                          // sqlite: done
                 "hypervisor", "",                            // smart + done
+                "y", "pve", "pct exec 601 -- k3s kubectl",  // Kubernetes + readyz probe
+                "y", "", "y", "",                         // Velero default namespace, workloads, freshness
+                "",                                          // Kubernetes: done
             ]),
 
         ["02-wrong-answers-rejected"] = new(
@@ -122,6 +125,9 @@ public class WizardTranscriptTests
                 "truenas", "n",                              // smart: smartmontools missing -> don't add
                 "nas", "n",                                  // smart: no physical disks -> don't add
                 "hypervisor", "",                            // smart: fine + done
+                "y", "pve", "notkubectl", "n", "",      // bad command -> reject -> skip cluster
+                "pve", "", "y", "wrong-namespace", "n", "", // retry; bad Velero namespace -> skip it
+                "y", "",                                    // workload checks + Kubernetes done
             ]),
 
         ["03-everything-skipped"] = new(
@@ -140,6 +146,7 @@ public class WizardTranscriptTests
                 "",                                          // file backups: skip
                 "n",                                         // sqlite: no
                 "",                                          // smart: skip
+                "n",                                         // Kubernetes: no
             ]),
     };
 
@@ -190,7 +197,8 @@ public class WizardTranscriptTests
             sb.AppendLine("repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the");
             sb.AppendLine("canary /etc/fstab restores, any other path restores 0 bytes; PVE has node");
             sb.AppendLine("'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on");
-            sb.AppendLine("pve/hypervisor, no disks on nas, not installed on truenas.");
+            sb.AppendLine("pve/hypervisor, no disks on nas, not installed on truenas. Kubernetes readyz");
+            sb.AppendLine("works through kubectl or the documented K3s LXC prefix; Velero is in namespace velero.");
             sb.AppendLine();
             sb.AppendLine("---------------------------------- dialogue ----------------------------------");
             sb.AppendLine(Sanitize(dialogue.ToString(), dir.FullName).TrimEnd('\n'));

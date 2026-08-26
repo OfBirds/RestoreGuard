@@ -218,7 +218,8 @@
     "dashboardHostAliases": ["mydockerhost", "myotherhost"]
   },
 
-  // Kubernetes / K3s clusters. This is config-file-only in the v1 wizard.
+  // Kubernetes / K3s clusters. The wizard live-probes the common setup; use
+  // this form when hand-editing or adding an advanced command prefix.
   // kubectl is a command PREFIX executed on alias (for sshd-less LXC use
   // e.g. "pct exec 601 -- k3s kubectl"). veleroNamespace: null explicitly
   // disables Velero checks; omission defaults to "velero".

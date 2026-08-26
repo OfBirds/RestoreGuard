@@ -14,7 +14,8 @@ hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
 repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the
 canary /etc/fstab restores, any other path restores 0 bytes; PVE has node
 'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on
-pve/hypervisor, no disks on nas, not installed on truenas.
+pve/hypervisor, no disks on nas, not installed on truenas. Kubernetes readyz
+works through kubectl or the documented K3s LXC prefix; Velero is in namespace velero.
 
 ---------------------------------- dialogue ----------------------------------
 
@@ -209,7 +210,31 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
   checking for smartctl and physical disks ... OK
 SMART host #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s).
+--- Kubernetes / K3s (node and deployment health, plus Velero backup coverage) ---
+Do you run a Kubernetes or K3s cluster that RestoreGuard should audit? [y/N]: «y»
+Kubernetes cluster #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  kubectl command prefix on that host (e.g. kubectl or pct exec 601 -- k3s kubectl) [kubectl]: «notkubectl»
+  checking ... PROBLEM — could not reach the Kubernetes API with that command — check kubectl and its context
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  kubectl command prefix on that host (e.g. kubectl or pct exec 601 -- k3s kubectl): «Enter»
+  Skipping this cluster (no working kubectl command).
+Kubernetes cluster #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip): «pve»
+  testing  ssh pve 'echo ok'  ... OK
+  kubectl command prefix on that host (e.g. kubectl or pct exec 601 -- k3s kubectl) [kubectl]: «Enter»
+  checking ... OK — Kubernetes API is ready
+  Does this cluster use Velero for backup coverage? [y/N]: «y»
+  Velero namespace [velero]: «wrong-namespace»
+  checking ... PROBLEM — could not read Velero Backup resources there — check the namespace and RBAC
+  Keep this value anyway? [y/N]: «n»
+  (press Enter to skip this question)
+  Velero namespace: «Enter»
+  Skipping Velero coverage for this cluster.
+  Check Kubernetes node and deployment availability too? [y/N]: «y»
+Kubernetes cluster #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
+
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 1 file-backup source(s), 1 ZFS dataset(s), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s), 1 Kubernetes cluster(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
 Every audit also saves its JSON report to a per-user reports folder
@@ -296,6 +321,16 @@ Wizard result: config written
       "alias": "nas",
       "path": "/backups/appdata-live"
     }
+  ],
+  "kubernetesClusters": [
+    {
+      "name": "pve",
+      "alias": "pve",
+      "kubectl": "kubectl",
+      "maxBackupAgeHours": 26,
+      "checkWorkloads": true,
+      "veleroNamespace": null
+    }
   ]
 }
 
@@ -337,3 +372,8 @@ Wizard result: config written
  35. [nas] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
  36. [hypervisor] echo ok
  37. [hypervisor] command -v smartctl > /dev/null 2>&1 || { echo missing-tool; exit 0; }; [ -n "$(smartctl --scan 2>/dev/null)" ] && echo ok || echo no-disks
+ 38. [pve] echo ok
+ 39. [pve] notkubectl get --raw=/readyz > /dev/null
+ 40. [pve] echo ok
+ 41. [pve] kubectl get --raw=/readyz > /dev/null
+ 42. [pve] kubectl get backups.velero.io -n 'wrong-namespace' -o json > /dev/null

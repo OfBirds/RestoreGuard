@@ -86,7 +86,10 @@ completed Velero pod-volume backup or Ready CSI snapshot from the latest success
 backup; a Backup resource alone is not data-protection evidence.
 Workload checks can be disabled with `checkWorkloads: false`; do not
 disable both workload checks and Velero, because that would audit no surface.
-Kubernetes is not included in the v1 setup wizard; configure it by hand.
+The guided setup wizard live-probes the configured `kubectl` prefix against
+`/readyz` and, when selected, probes Velero Backup access before writing this
+section. The cluster's audit name is its proven SSH destination; edit the file
+when a different display name is needed.
 
 *Host needs:* SSH access to a machine with the configured `kubectl` command prefix;
 for an LXC prefix, root access on the PVE host to run `pct exec`.

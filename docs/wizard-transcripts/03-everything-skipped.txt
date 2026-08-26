@@ -12,7 +12,8 @@ hypervisor only; dumps live in /var/backups/db-prod (12 files); the restic
 repo is /mnt/restic-repo, borg is /backups/borg with /root/.borg-pass; the
 canary /etc/fstab restores, any other path restores 0 bytes; PVE has node
 'pve' with storage 'pbs-store'; dataset tank/private exists; smartctl: ok on
-pve/hypervisor, no disks on nas, not installed on truenas.
+pve/hypervisor, no disks on nas, not installed on truenas. Kubernetes readyz
+works through kubectl or the documented K3s LXC prefix; Velero is in namespace velero.
 
 ---------------------------------- dialogue ----------------------------------
 
@@ -60,6 +61,9 @@ Do you keep plain-copy backups of app data (vaultwarden, *arr, HA — SQLite app
 
 --- SMART disk health (machines with PHYSICAL disks: hypervisors/bare metal; a NAS VM only sees virtual disks) ---
 SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART): «Enter»
+
+--- Kubernetes / K3s (node and deployment health, plus Velero backup coverage) ---
+Do you run a Kubernetes or K3s cluster that RestoreGuard should audit? [y/N]: «n»
 
 Nothing was configured, so there is nothing to audit yet.
 Re-run `restoreguard` to try again, or copy restoreguard.sample.json and edit it by hand.

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Optional multi-cluster Kubernetes/K3s auditing with Velero, PVC, workload,
   and node protection checks plus read-only Doctor RBAC preflight.
+- Guided setup support for Kubernetes/K3s clusters, with live readiness and
+  optional Velero Backup-resource probes.
 - New check: `dashboard-registration-drift`
   - Detects Docker containers with published ports that are not registered in Homepage dashboard
   - Finding codes: 
