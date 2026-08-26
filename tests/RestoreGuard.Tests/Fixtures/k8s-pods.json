@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "metadata": { "namespace": "apps", "name": "web-0" },
+      "spec": {
+        "volumes": [
+          { "name": "data", "persistentVolumeClaim": { "claimName": "data" } },
+          { "name": "config", "configMap": { "name": "web-config" } }
+        ]
+      }
+    }
+  ]
+}

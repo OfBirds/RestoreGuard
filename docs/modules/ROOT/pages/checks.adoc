@@ -170,6 +170,21 @@ in real labs: the replica keeps its old snapshots and *looks* fine.
 | `cloudsync/not-off-box` | YELLOW | a top-level dataset is covered by no cloud-sync task — its data never leaves the box
 |===
 
+== Kubernetes / K3s (`kubernetesClusters`)
+
+[cols="2,1,4"]
+|===
+| `k8s/unreachable` | RED | a configured cluster could not be discovered; the report is partial
+| `k8s-backup/velero-missing` | RED | Velero's Backup resource type is absent
+| `k8s-backup/no-backups` / `k8s-backup/no-completed` | RED | Velero is installed but has no backups or no successful backup
+| `k8s-backup/stale` | RED | newest Completed backup exceeds `maxBackupAgeHours`
+| `k8s-backup/failed` | RED | the latest unsuccessful backup is Failed, PartiallyFailed, or FailedValidation
+| `k8s-backup/no-schedule` | YELLOW | backups exist but no Velero Schedule is configured
+| `k8s-pvc/unbound` / `k8s-pvc/unprotected` | RED | a PVC is not Bound, or a Bound PVC lacks a completed Velero pod-volume backup or Ready CSI snapshot in the latest completed backup
+| `k8s-workload/unavailable` | YELLOW | a deployment has fewer available than desired replicas
+| `k8s-node/not-ready` | RED | a cluster node is NotReady
+|===
+
 == Storage & disks (`pveNodes`, `trueNas`, `smartHosts`)
 
 [cols="2,1,4"]

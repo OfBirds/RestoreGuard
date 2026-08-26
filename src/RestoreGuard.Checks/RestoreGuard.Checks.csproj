@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RestoreGuard.Core\RestoreGuard.Core.csproj" />
+    <ProjectReference Include="..\RestoreGuard.Providers\RestoreGuard.Providers.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

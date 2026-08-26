@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "name": "pvb-web-data",
+        "namespace": "velero",
+        "labels": { "velero.io/backup-name": "nightly-20260825" }
+      },
+      "spec": {
+        "pod": { "namespace": "apps", "name": "web-0" },
+        "volume": "data"
+      },
+      "status": { "phase": "Completed" }
+    },
+    {
+      "metadata": {
+        "name": "pvb-old-data",
+        "namespace": "velero",
+        "labels": { "velero.io/backup-name": "failed-20260824" }
+      },
+      "spec": {
+        "pod": { "namespace": "apps", "name": "web-0" },
+        "volume": "data"
+      },
+      "status": { "phase": "Failed" }
+    }
+  ]
+}

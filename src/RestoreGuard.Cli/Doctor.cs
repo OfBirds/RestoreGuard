@@ -4,7 +4,7 @@ namespace RestoreGuard.Cli;
 
 /// <summary>One preflight probe: a cheap read-only command that succeeds iff the
 /// host grants what the corresponding audit surface needs.</summary>
-public sealed record DoctorProbe(string Host, string Area, string Command, string Requirement);
+public sealed record DoctorProbe(string Host, string Area, string Command, string Requirement, string? ExpectedStdOut = null);
 
 /// <summary>
 /// `restoreguard --doctor`: verifies every prerequisite of the configured surfaces
@@ -22,6 +22,50 @@ public static class Doctor
             probes.Add(new DoctorProbe(h.Alias, "docker",
                 $"{h.DockerPath} version --format '{{{{.Server.Version}}}}' > /dev/null && {h.DockerPath} compose version > /dev/null",
                 "SSH user can reach the Docker daemon and has the compose v2 plugin (>= 2.17 for `config --format json`)"));
+        }
+
+        foreach (var cluster in config.KubernetesClusters ?? [])
+        {
+            probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                $"{cluster.Kubectl} get --raw=/readyz > /dev/null",
+                $"Kubernetes API reachable through '{cluster.Kubectl}' on {cluster.Alias}"));
+            if (cluster.VeleroNamespace is not null)
+            {
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list persistentvolumeclaims --all-namespaces",
+                    "RBAC allows reading Kubernetes PVCs for Velero data-protection coverage", "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list backups.velero.io -n '{cluster.VeleroNamespace}'",
+                    $"RBAC allows reading Velero backups in namespace '{cluster.VeleroNamespace}'",
+                    "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list schedules.velero.io -n '{cluster.VeleroNamespace}'",
+                    $"RBAC allows reading Velero schedules in namespace '{cluster.VeleroNamespace}'",
+                    "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list podvolumebackups.velero.io -n '{cluster.VeleroNamespace}'",
+                    $"RBAC allows reading Velero pod-volume backups in namespace '{cluster.VeleroNamespace}'",
+                    "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list pods --all-namespaces",
+                    "RBAC allows mapping pod-volume backups to their PVCs", "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"if {cluster.Kubectl} api-resources --api-group=snapshot.storage.k8s.io --no-headers | grep -q '^volumesnapshots'; then [ \"$({cluster.Kubectl} auth can-i list volumesnapshots.snapshot.storage.k8s.io --all-namespaces)\" = yes ]; fi",
+                    "CSI volume-snapshot API is absent, or RBAC allows reading it when installed"));
+            }
+            if (cluster.CheckWorkloads)
+            {
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list nodes",
+                    "RBAC allows reading Kubernetes nodes", "yes"));
+                probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                    $"{cluster.Kubectl} auth can-i list deployments.apps --all-namespaces",
+                    "RBAC allows reading Kubernetes deployments", "yes"));
+                if (cluster.VeleroNamespace is null)
+                    probes.Add(new DoctorProbe(cluster.Alias, "k8s",
+                        $"{cluster.Kubectl} auth can-i list persistentvolumeclaims --all-namespaces",
+                        "RBAC allows reading Kubernetes PVCs", "yes"));
+            }
         }
 
         foreach (var db in config.LogicalDbBackups ?? [])
@@ -168,7 +212,9 @@ public static class Doctor
             try
             {
                 var r = await ssh.RunAsync(p.Host, p.Command);
-                return (Probe: p, Ok: r.ExitCode == 0, Detail: r.StdErr.Trim());
+                var outputOk = p.ExpectedStdOut is null || string.Equals(r.StdOut.Trim(), p.ExpectedStdOut, StringComparison.Ordinal);
+                var detail = outputOk ? r.StdErr.Trim() : $"expected stdout '{p.ExpectedStdOut}', got '{r.StdOut.Trim()}'";
+                return (Probe: p, Ok: r.ExitCode == 0 && outputOk, Detail: detail);
             }
             catch (Exception ex)
             {

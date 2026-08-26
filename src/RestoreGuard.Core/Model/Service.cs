@@ -6,6 +6,10 @@ public enum ServiceKind
     Vm,
     Lxc,
     Stack,
+    K8sNode,
+    K8sWorkload,
+    K8sCluster,
+    K8sPersistentVolumeClaim,
 }
 
 /// <summary>A mount as either declared (compose config) or live (container inspect).</summary>

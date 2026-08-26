@@ -77,4 +77,8 @@ public sealed class DockerProvider(ISshProvider ssh) : IDockerProvider
     private static string Truncate(string s) => s.Length <= 300 ? s.Trim() : s[..300].Trim() + "…";
 }
 
-public sealed class ProviderException(string message) : Exception(message);
+public class ProviderException : Exception
+{
+    public ProviderException(string message) : base(message) { }
+    public ProviderException(string message, Exception innerException) : base(message, innerException) { }
+}

@@ -1,0 +1,1 @@
+{"apiVersion":"velero.io/v1","items":[{"metadata":{"namespace":"velero","name":"nightly"},"status":{"lastBackup":"2026-08-25T00:10:00Z"}}]}
