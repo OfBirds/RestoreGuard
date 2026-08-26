@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using RestoreGuard.Providers;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
@@ -638,6 +639,65 @@ public static class InteractiveMode
             }
         }
 
+        io.WriteLine();
+        io.WriteLine("--- Kubernetes / K3s (node and deployment health, plus Velero backup coverage) ---");
+        var kubernetesClusters = new List<Providers.Kubernetes.KubernetesClusterConfig>();
+        if (AskYesNo(io, "Do you run a Kubernetes or K3s cluster that RestoreGuard should audit?"))
+        {
+            while (true)
+            {
+                var alias = await AskSshDestinationAsync(ssh, io,
+                    $"Kubernetes cluster #{kubernetesClusters.Count + 1} SSH destination (e.g. pve or root@192.168.1.5; Enter = {(kubernetesClusters.Count == 0 ? "skip" : "done")})");
+                if (alias.Length == 0)
+                    break;
+
+                var kubectl = await AskProbedAsync(io,
+                    "  kubectl command prefix on that host (e.g. kubectl or pct exec 601 -- k3s kubectl)", "kubectl",
+                    async command =>
+                    {
+                        var r = await ssh.RunAsync(alias, $"{command} get --raw=/readyz > /dev/null");
+                        return r.ExitCode == 0
+                            ? (true, "Kubernetes API is ready")
+                            : (false, "could not reach the Kubernetes API with that command — check kubectl and its context");
+                    });
+                if (kubectl.Length == 0)
+                {
+                    io.WriteLine("  Skipping this cluster (no working kubectl command).");
+                    continue;
+                }
+
+                string? veleroNamespace = null;
+                if (AskYesNo(io, "  Does this cluster use Velero for backup coverage?"))
+                {
+                    var namespaceName = await AskProbedAsync(io, "  Velero namespace", "velero",
+                        async ns =>
+                        {
+                            var r = await ssh.RunAsync(alias,
+                                $"{kubectl} get backups.velero.io -n {Sh(ns)} -o json > /dev/null");
+                            return r.ExitCode == 0
+                                ? (true, "Velero Backup resources are readable")
+                                : (false, "could not read Velero Backup resources there — check the namespace and RBAC");
+                        });
+                    if (namespaceName.Length > 0)
+                        veleroNamespace = namespaceName;
+                    else
+                        io.WriteLine("  Skipping Velero coverage for this cluster.");
+                }
+
+                var checkWorkloads = AskYesNo(io, "  Check Kubernetes node and deployment availability too?");
+                if (veleroNamespace is null && !checkWorkloads)
+                {
+                    io.WriteLine("  Skipping this cluster: Velero and workload checks cannot both be off.");
+                    continue;
+                }
+
+                var maxBackupAgeHours = veleroNamespace is null ? 26 : AskHours(io, 26);
+                // Use the proven SSH destination as the stable identity. This avoids an
+                // unprobeable free-text label and preserves valid old-config semantics.
+                kubernetesClusters.Add(new(alias, alias, kubectl, veleroNamespace, maxBackupAgeHours, checkWorkloads));
+            }
+        }
+
         var configured = new List<string>();
         if (dockerHosts.Count > 0) configured.Add($"{dockerHosts.Count} Docker host(s)");
         if (logicalDb is not null) configured.Add("DB dumps");
@@ -658,6 +718,7 @@ public static class InteractiveMode
         if (offsiteJobs.Count > 0) configured.Add($"{offsiteJobs.Count} off-site job(s)");
         if (sqliteBackupDirs.Count > 0) configured.Add($"{sqliteBackupDirs.Count} SQLite scan folder(s)");
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
+        if (kubernetesClusters.Count > 0) configured.Add($"{kubernetesClusters.Count} Kubernetes cluster(s)");
 
         if (configured.Count == 0)
         {
@@ -675,11 +736,12 @@ public static class InteractiveMode
             SuppressionsFile: "suppressions.json",
             ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null,
             OffsiteJobs: offsiteJobs.Count > 0 ? offsiteJobs : null,
-            SqliteBackupDirs: sqliteBackupDirs.Count > 0 ? sqliteBackupDirs : null);
+            SqliteBackupDirs: sqliteBackupDirs.Count > 0 ? sqliteBackupDirs : null,
+            KubernetesClusters: kubernetesClusters.Count > 0 ? kubernetesClusters : null);
 
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
         var suppressionsPath = Path.Combine(configDir, "suppressions.json");
-        File.WriteAllText(configPath, JsonSerializer.Serialize(config, WizardJson));
+        File.WriteAllText(configPath, SerializeWizardConfig(config));
         if (!File.Exists(suppressionsPath))
             File.WriteAllText(suppressionsPath, "[]\n");
 
@@ -708,6 +770,24 @@ public static class InteractiveMode
         // name readable instead of escaping it to a \u sequence.
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
+
+    /// <summary>Preserves explicit Kubernetes `veleroNamespace: null`: omitting it
+    /// has a different meaning (the record's default is `velero`). The general wizard
+    /// serializer omits nulls to keep the generated file approachable, so restore this
+    /// one semantic null after serializing the rest of the config.</summary>
+    private static string SerializeWizardConfig(RestoreGuardConfig config)
+    {
+        var root = JsonSerializer.SerializeToNode(config, WizardJson)!.AsObject();
+        if (config.KubernetesClusters is { } clusters && root["kubernetesClusters"] is JsonArray rendered)
+        {
+            for (var i = 0; i < clusters.Count; i++)
+            {
+                if (clusters[i].VeleroNamespace is null)
+                    rendered[i]!.AsObject()["veleroNamespace"] = null;
+            }
+        }
+        return root.ToJsonString(WizardJson);
+    }
 
     /// <summary>Asks for an SSH destination and immediately proves it works; on
     /// failure shows the cause and re-asks (with a keep-anyway escape hatch).</summary>

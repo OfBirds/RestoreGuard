@@ -96,6 +96,17 @@ internal sealed class FakeLabSsh : ISshProvider
         if (command.Contains("echo ok"))
             return Ok("ok");
 
+        // Kubernetes wizard probes use the same read-only readiness and Velero
+        // command shapes that Doctor/audit depend on.
+        if (command.Contains("get --raw=/readyz"))
+            return command.StartsWith("kubectl ", StringComparison.Ordinal)
+                || command.StartsWith("pct exec 601 -- k3s kubectl ", StringComparison.Ordinal)
+                ? Ok("") : Fail("command not found");
+        if (command.Contains("get backups.velero.io"))
+            return command.Contains("-n 'velero'")
+                ? Ok("{\"items\":[]}")
+                : Fail("backups.velero.io not found in that namespace");
+
         if (command.Contains("find '/var/backups/db-prod'"))
             return Ok("12\n");
         if (command.Contains("find ")) // any other dump dir doesn't exist

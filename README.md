@@ -157,7 +157,8 @@ restoreguard help
 
 `-c/--config <path>` selects a config file (default `./restoreguard.json`);
 `restoreguard.sample.json` is the annotated template for the advanced sections the
-wizard doesn't cover.
+wizard doesn't cover. The guided setup includes Kubernetes/K3s clusters: it
+live-probes the `kubectl` prefix and, when selected, Velero Backup access.
 
 Alternatively, build a standalone binary yourself with the .NET 10 SDK (swap the
 RID for `win-x64` / `osx-arm64` as needed):

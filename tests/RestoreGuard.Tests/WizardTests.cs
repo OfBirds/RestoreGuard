@@ -60,6 +60,61 @@ public class WizardTests : IDisposable
         Assert.False(File.Exists(ConfigPath));
     }
 
+    // ---------- Kubernetes / K3s through the wizard ----------
+
+    [Fact]
+    public async Task Wizard_KubernetesCluster_IsLiveProbedAndWrittenToConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n", "n", "n", "", "n", "", // skip existing sections through SMART
+            "y", "pve", "pct exec 601 -- k3s kubectl",             // Kubernetes + destination + readyz probe
+            "y", "", "y", "48",                                  // Velero default namespace, workloads, freshness
+            "");                                                      // Kubernetes: done
+
+        Assert.True(ok);
+        Assert.Contains("Kubernetes API is ready", output);
+        Assert.Contains("Velero Backup resources are readable", output);
+        Assert.Contains("Configured: 1 Kubernetes cluster(s)", output);
+
+        var cluster = Assert.Single(RestoreGuardConfig.Load(ConfigPath).KubernetesClusters!);
+        Assert.Equal(("pve", "pve", "pct exec 601 -- k3s kubectl", "velero", 48d, true),
+            (cluster.Name, cluster.Alias, cluster.Kubectl, cluster.VeleroNamespace, cluster.MaxBackupAgeHours, cluster.CheckWorkloads));
+    }
+
+    [Fact]
+    public async Task Wizard_KubernetesBadCommandAndVeleroNamespace_AreRejectedThenSkipped()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n", "n", "n", "", "n", "", // skip existing sections through SMART
+            "y", "pve", "notkubectl", "n", "",                 // bad command, reject, Enter skips this cluster
+            "pve", "", "y", "wrong-namespace", "n", "", "y", // retry; Velero rejected and skipped, workloads enabled
+            "");                                                      // Kubernetes: done
+
+        Assert.True(ok);
+        Assert.Contains("could not reach the Kubernetes API", output);
+        Assert.Contains("could not read Velero Backup resources", output);
+        Assert.Contains("Skipping Velero coverage", output);
+
+        var cluster = Assert.Single(RestoreGuardConfig.Load(ConfigPath).KubernetesClusters!);
+        Assert.Equal("kubectl", cluster.Kubectl);
+        Assert.True(cluster.VeleroNamespace is null, output);
+        Assert.True(cluster.CheckWorkloads);
+    }
+
+    [Fact]
+    public async Task Wizard_KubernetesWithoutVeleroOrWorkloadChecks_RefusesEmptyConfig()
+    {
+        var (ok, output) = await RunWizardAsync(
+            "", "n", "n", "n", "n", "n", "", "n", "", // skip existing sections through SMART
+            "y", "pve", "", "n", "n",                       // Kubernetes readyz, then both audit surfaces disabled
+            "");                                                   // Kubernetes: done
+
+        Assert.False(ok);
+        Assert.Contains("Velero and workload checks cannot both be off", output);
+        Assert.Contains("Nothing was configured", output);
+        Assert.False(File.Exists(ConfigPath));
+    }
+
     // ---------- SSH destination handling ----------
 
     [Fact]
