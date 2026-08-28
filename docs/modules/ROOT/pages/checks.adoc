@@ -185,6 +185,25 @@ in real labs: the replica keeps its old snapshots and *looks* fine.
 | `k8s-node/not-ready` | RED | a cluster node is NotReady
 |===
 
+== S3-compatible object storage (`objectStorageBuckets`)
+
+The provider performs signed read-only GET requests for versioning, optional
+Object Lock, and optional `ListObjectsV2` metadata. It never writes or reads
+object content. A bounded freshness scan that reaches its request/page limit is
+YELLOW, not a false green.
+
+[cols="2,1,4"]
+|===
+| `s3/unreachable` | RED | endpoint, credentials, permissions, or bucket name prevented metadata discovery
+| `s3/versioning-disabled` | RED | bucket versioning is suspended or absent, so an old object can overwrite a newer backup
+| `s3/object-lock-disabled` | RED | Object Lock is required by config but is not enabled on the bucket
+| `s3/object-lock-no-default-retention` | RED | Object Lock is enabled but new objects have no default retention rule
+| `s3/object-lock-retention-too-short` | RED | the default retention is shorter than `minRetentionDays`
+| `s3/newest-object-missing` | RED | the optional freshness scan found no object under the configured prefix
+| `s3/newest-object-stale` | RED | the newest object is older than `maxNewestObjectAgeHours`
+| `s3/newest-object-unproven` | YELLOW | the bounded listing reached its page/request limit before proving which object is newest
+|===
+
 == Storage & disks (`pveNodes`, `trueNas`, `smartHosts`)
 
 [cols="2,1,4"]

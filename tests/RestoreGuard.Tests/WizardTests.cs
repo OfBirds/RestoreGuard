@@ -1,4 +1,5 @@
 using RestoreGuard.Cli;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Tests;
 
@@ -20,6 +21,15 @@ public class WizardTests : IDisposable
         return (ok, output.ToString());
     }
 
+    private async Task<(bool Ok, string Output)> RunWizardAsync(
+        FakeStorage objectStorage, params string[] answers)
+    {
+        var output = new StringWriter();
+        var ok = await InteractiveMode.RunWizardAsync(ConfigPath, new FakeLabSsh(),
+            new WizardIO(new StringReader(string.Join('\n', answers)), output), objectStorage);
+        return (ok, output.ToString());
+    }
+
     // ---------- happy path ----------
 
     [Fact]
@@ -33,7 +43,8 @@ public class WizardTests : IDisposable
             "n", "n",                             // zfs: no, offsite: no
             "",                                   // file backups: skip
             "n",                                  // sqlite: no
-            "hypervisor", "");                    // smart: one good host, done
+            "hypervisor", "",                     // smart: one good host, done
+            "n");                                 // S3 object storage: no
 
         Assert.True(ok);
         Assert.Contains("Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, SMART on 1 host(s)", output);
@@ -476,7 +487,7 @@ public class WizardTests : IDisposable
             "y", "nas", "backup/pve-data",        // replica probed: 1 snapshot
             "", "",                               // name default, hours default
             "",                                   // zfs: done
-            "", "");
+            "", "n");                             // smart/k8s/S3 skips
 
         Assert.True(ok);
         Assert.Contains("dataset found, 2 snapshot(s)", output);
@@ -608,6 +619,52 @@ public class WizardTests : IDisposable
         Assert.Contains("backed up to", output.ToString());
         Assert.Equal("{\"dockerHosts\":[]}", File.ReadAllText(ConfigPath + ".bak"));
         Assert.Equal("nas", Assert.Single(RestoreGuardConfig.Load(ConfigPath).DockerHosts).Alias);
+    }
+
+    [Fact]
+    public async Task S3BucketRejectedByMetadata_SkipsAndDoesNotWriteSection()
+    {
+        var (ok, output) = await RunWizardAsync(new FakeStorage(versioning: false),
+            "", "n", "n", "n", "n", "n", "", "n", "", "n",
+            "y", "offsite", "https://s3.example.com", "bucket", "access", "secret",
+            "y", "y", "30", "y", "26",
+            "");
+
+        Assert.False(ok);
+        Assert.Contains("versioning is not configured", output);
+        Assert.Contains("Bucket skipped", output);
+        Assert.False(File.Exists(ConfigPath));
+    }
+
+    [Fact]
+    public async Task S3BucketLiveProbe_WritesValidConfiguration()
+    {
+        var (ok, _) = await RunWizardAsync(new FakeStorage(),
+            "", "n", "n", "n", "n", "n", "", "n", "", "n",
+            "y", "offsite", "https://s3.example.com", "bucket", "access", "secret",
+            "y", "y", "30", "y", "26",
+            "");
+
+        Assert.True(ok);
+        var bucket = Assert.Single(RestoreGuardConfig.Load(ConfigPath).ObjectStorageBuckets!);
+        Assert.Equal("offsite", bucket.Name);
+        Assert.Equal("https://s3.example.com", bucket.Endpoint);
+        Assert.True(bucket.CheckObjectLock);
+        Assert.Equal(30, bucket.MinRetentionDays);
+        Assert.True(bucket.CheckNewestObject);
+    }
+
+    private sealed class FakeStorage(bool versioning = true) : IObjectStorageProvider
+    {
+        public Task<S3BucketAudit> GetBucketAsync(
+            S3BucketConfig config, string configDir, CancellationToken ct = default) => Task.FromResult(
+            new S3BucketAudit(
+                config.Name,
+                config.Bucket,
+                new(versioning ? "Enabled" : null, false),
+                new(true, "COMPLIANCE", 30, null),
+                new("backup/newest.json", DateTimeOffset.UtcNow, 1),
+                false));
     }
 
     // ---------- menu ----------

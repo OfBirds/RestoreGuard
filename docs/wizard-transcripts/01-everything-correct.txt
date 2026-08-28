@@ -182,7 +182,23 @@ Kubernetes cluster #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = ski
   alert when the newest backup is older than (hours) [26]: «Enter»
 Kubernetes cluster #2 SSH destination (e.g. pve or root@192.168.1.5; Enter = done): «Enter»
 
-Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 6 file-backup source(s) (2 with restore canary), 1 ZFS dataset(s) (1 replicated), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s), 1 Kubernetes cluster(s).
+--- S3-compatible object storage (versioning, Object Lock, newest object) ---
+Do you back up to an S3-compatible bucket (MinIO, Garage, R2, AWS)? [y/N]: «y»
+  a name for bucket #1 (Enter = skip): «offsite»
+  endpoint URL: «https://s3.example.com»
+  bucket name: «valid-bucket»
+  file containing the access key: «s3-access»
+  file containing the secret key: «s3-secret»
+  require Object Lock and a default retention rule? [y/N]: «y»
+  enforce a minimum default retention age? [y/N]: «y»
+  minimum default retention (days) [30]: «30»
+  check the newest object's age with a read-only listing? [y/N]: «y»
+  alert when the newest backup is older than (hours) [26]: «26»
+  S3 region [us-east-1]: «Enter»
+  checking bucket metadata (signed GET only) ... OK
+  a name for bucket #2 (Enter = skip): «EOF»
+
+Configured: 1 Docker host(s), DB dumps, 1 Proxmox node(s), TrueNAS, 6 file-backup source(s) (2 with restore canary), 1 ZFS dataset(s) (1 replicated), 1 off-site job(s), 1 SQLite scan folder(s), SMART on 1 host(s), 1 Kubernetes cluster(s), 1 S3 bucket(s).
 Wrote restoreguard.json (+ suppressions.json for known exceptions later).
 
 Every audit also saves its JSON report to a per-user reports folder
@@ -322,6 +338,25 @@ Wizard result: config written
       "veleroNamespace": "velero",
       "maxBackupAgeHours": 26,
       "checkWorkloads": true
+    }
+  ],
+  "objectStorageBuckets": [
+    {
+      "name": "offsite",
+      "endpoint": "https://s3.example.com",
+      "bucket": "valid-bucket",
+      "prefix": "",
+      "region": "us-east-1",
+      "forcePathStyle": true,
+      "accessKeyFile": "s3-access",
+      "secretKeyFile": "s3-secret",
+      "checkObjectLock": true,
+      "objectLockRequired": true,
+      "minRetentionDays": 30,
+      "checkNewestObject": true,
+      "maxNewestObjectAgeHours": 26,
+      "maxListKeys": 100,
+      "maxListRequests": 5
     }
   ]
 }

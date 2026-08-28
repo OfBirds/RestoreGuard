@@ -62,6 +62,9 @@ infrastructure *actually is*, and prints a RED/YELLOW/GREEN report per service:
 - **Off-site freshness & capacity** — every scheduled rclone sync job actually
   ran, succeeded, and is recent (a job that never ran is RED, not invisible);
   the destination isn't silently full.
+- **S3-compatible bucket immutability** — signed read-only metadata probes for
+  versioning, optional Object Lock/default retention, and optional newest-object
+  freshness with a bounded listing (no object bodies, no probe writes).
 - **Kubernetes / K3s** — Velero coverage and freshness, PVC protection,
   deployment availability, and node readiness.
 - **Disk health** — SMART status on the hypervisors.
@@ -106,6 +109,7 @@ have. You need:
 | `zfsReplications` | `zfs list -H -p -t snapshot` on source (and replica) | `zfs` on PATH; read access (no `zfs send/recv` is ever run) |
 | `offsiteJobs` | `tail` the job's log; optional `rclone about` | read the log; with `rcloneRemote`, the host's remote must authenticate |
 | `sqliteBackupDirs` | recursive `find` for `*-wal`/`*-shm` | read access to the backup folder |
+| `objectStorageBuckets` | signed GET bucket metadata and bounded `ListObjectsV2` metadata pages | bucket credentials; permission to read bucket versioning, Object Lock, and object metadata |
 | `pbsOffsite` *(legacy — prefer `offsiteJobs`)* | `tail` the sync log, `rclone about` | read the log; the host's rclone remote must authenticate |
 | `pbsMaintenance` | `pct exec <CT> -- proxmox-backup-manager` (GC, verify + sync jobs, datastore list); `ls` of `host/<id>` snapshot dirs for `hostBackups` | root on the PVE host that runs the PBS container |
 | `kubernetesClusters` | read-only `kubectl get` for cluster, workload, Velero, PodVolumeBackup, and CSI snapshot resources | SSH access to the configured `kubectl` prefix; for an LXC prefix, root on the PVE host for `pct exec` |

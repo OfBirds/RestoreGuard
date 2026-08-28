@@ -12,6 +12,7 @@ using RestoreGuard.Providers.Pve;
 using RestoreGuard.Providers.Smart;
 using RestoreGuard.Providers.TrueNas;
 using RestoreGuard.Providers.Kubernetes;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Cli;
 
@@ -83,6 +84,10 @@ public static class AuditRunner
         var sqliteTasks = (config.SqliteBackupDirs ?? [])
             .Select(s => Track("sqlite", $"{s.Alias} ({s.Name})", sqliteProvider.GetAsync(s)))
             .ToList();
+        var objectStorageProvider = new S3ObjectStorageProvider();
+        var objectStorageTasks = (config.ObjectStorageBuckets ?? [])
+            .Select(bucket => Track("s3", bucket.Name, objectStorageProvider.GetBucketAsync(bucket, configDir)))
+            .ToList();
 
         // Dashboard registration drift probe: fetch Homepage ConfigMap from k3s
         // master, then docker ps from each configured host.
@@ -117,6 +122,8 @@ public static class AuditRunner
         // suppression target even when its provider fails before yielding any inventory.
         services.AddRange((config.KubernetesClusters ?? []).Select(cluster =>
             new Service($"{cluster.Name} cluster", cluster.Name, ServiceKind.K8sCluster, "unknown", null, [], null)));
+        services.AddRange((config.ObjectStorageBuckets ?? []).Select(bucket =>
+            new Service($"{bucket.Name} bucket", bucket.Name, ServiceKind.ObjectStorageBucket, "unknown", null, [], null)));
 
         foreach (var (host, result, error) in dockerTasks.Select(t => t.Result))
         {
@@ -227,6 +234,11 @@ public static class AuditRunner
             if (error is not null) providerErrors.Add($"{host}: {error}");
         }
 
+        foreach (var (host, _, error) in objectStorageTasks.Select(t => t.Result))
+        {
+            if (error is not null) providerErrors.Add($"{host}: {error}");
+        }
+
         // Collect dashboard probe results
         var (dashHost, dashResult, dashError) = dashboardTask.Result;
         if (dashError is not null) providerErrors.Add($"{dashHost}: {dashError}");
@@ -318,6 +330,22 @@ public static class AuditRunner
             }).ToList();
             checks.Add(new KubernetesCheck(kubernetesStates,
                 expectations));
+        }
+        if (config.ObjectStorageBuckets is { Count: > 0 } buckets)
+        {
+            var providerResults = objectStorageTasks.Select(t => t.Result).ToList();
+            checks.Add(new S3ImmutabilityCheck(
+                objectStorageTasks.Select(t => t.Result.Item2).Where(a => a is not null).Cast<S3BucketAudit>().ToList(),
+                buckets.Select(bucket => new S3BucketExpectation(
+                    bucket.Name,
+                    bucket.ObjectLockRequired,
+                    bucket.MinRetentionDays,
+                    bucket.CheckNewestObject,
+                    bucket.MaxNewestObjectAgeHours,
+                    providerResults.FirstOrDefault(result => result.Item1 == bucket.Name && result.Item3 is not null) is { } result
+                        ? result.Item3
+                        : null)
+                    ).ToList()));
         }
 
         var report = new CheckEngine(checks).Run(inventory, suppressions, DateTimeOffset.UtcNow);

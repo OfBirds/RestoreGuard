@@ -1,6 +1,7 @@
 using System.Text;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using RestoreGuard.Providers;
 
 namespace RestoreGuard.Cli;
 

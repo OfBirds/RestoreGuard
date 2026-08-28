@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Read-only S3-compatible object-storage immutability audits: mandatory bucket
+  versioning, optional Object Lock/default retention, and optional newest-object
+  freshness through signed GET metadata and bounded `ListObjectsV2` pagination.
+  Rule IDs include `s3/versioning-disabled`, `s3/object-lock-*`,
+  `s3/newest-object-*`, and `s3/unreachable`. Includes configuration validation,
+  doctor preflight, guided setup live probes, sanitized XML parser fixtures, and
+  generated wizard transcripts. No probe object is written and no object body is
+  downloaded.
+- Moved `AwsSigV4` from RestoreGuard.Cli to RestoreGuard.Providers so both the
+  existing report sink and the new provider use the same dependency-free signer.
+  No reporting behavior changed.
 - Optional multi-cluster Kubernetes/K3s auditing with Velero, PVC, workload,
   and node protection checks plus read-only Doctor RBAC preflight.
 - Guided setup support for Kubernetes/K3s clusters, with live readiness and

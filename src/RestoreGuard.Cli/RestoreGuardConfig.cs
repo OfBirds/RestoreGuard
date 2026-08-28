@@ -3,6 +3,7 @@ using RestoreGuard.Core;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
 using RestoreGuard.Providers.Kubernetes;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Cli;
 
@@ -28,7 +29,8 @@ public sealed record RestoreGuardConfig(
     string? ReportingFile = null,
     ReportingConfig? Reporting = null,
     DashboardDriftCliConfig? DashboardDrift = null,
-    IReadOnlyList<KubernetesClusterConfig>? KubernetesClusters = null)
+    IReadOnlyList<KubernetesClusterConfig>? KubernetesClusters = null,
+    IReadOnlyList<S3BucketConfig>? ObjectStorageBuckets = null)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -37,9 +39,12 @@ public sealed record RestoreGuardConfig(
         AllowTrailingCommas = true,
     };
 
-    public static RestoreGuardConfig Load(string path) =>
-        JsonSerializer.Deserialize<RestoreGuardConfig>(File.ReadAllText(path), JsonOptions)
-        ?? throw new InvalidOperationException($"Config {path} deserialized to null.");
+    public static RestoreGuardConfig Load(string path)
+    {
+        var config = JsonSerializer.Deserialize<RestoreGuardConfig>(File.ReadAllText(path), JsonOptions)
+            ?? throw new InvalidOperationException($"Config {path} deserialized to null.");
+        return config with { DockerHosts = config.DockerHosts ?? [] };
+    }
 
     /// <summary>Loads and validates; prints errors + the fix hint and returns null on problems.</summary>
     public static RestoreGuardConfig? LoadValidated(string path)
@@ -211,6 +216,53 @@ public sealed record RestoreGuardConfig(
         }
 
         Reporting?.Validate(errors);
+
+        var s3Names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (bucket, i) in (ObjectStorageBuckets ?? []).Select((b, i) => (b, i)))
+        {
+            if (string.IsNullOrWhiteSpace(bucket.Name))
+                errors.Add($"objectStorageBuckets[{i}].name is empty.");
+            else if (!s3Names.Add(bucket.Name))
+                errors.Add($"objectStorageBuckets[{i}].name '{bucket.Name}' is duplicated.");
+
+            if (string.IsNullOrWhiteSpace(bucket.Bucket))
+                errors.Add($"objectStorageBuckets[{i}].bucket is empty.");
+            else if (bucket.Bucket.Length is < 3 or > 63 ||
+                     !bucket.Bucket.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-') ||
+                     !char.IsAsciiLetterOrDigit(bucket.Bucket[0]) || !char.IsAsciiLetterOrDigit(bucket.Bucket[^1]))
+                errors.Add($"objectStorageBuckets[{i}].bucket '{bucket.Bucket}' is not a valid S3 bucket name.");
+
+            if (!Uri.TryCreate(bucket.Endpoint, UriKind.Absolute, out var endpoint) ||
+                endpoint.Scheme is not ("http" or "https"))
+                errors.Add($"objectStorageBuckets[{i}].endpoint must be an http(s) URL.");
+            else if (endpoint.UserInfo.Length > 0)
+                errors.Add($"objectStorageBuckets[{i}].endpoint must not contain credentials.");
+            else if (endpoint.AbsolutePath != "/" || endpoint.Query.Length > 0 || endpoint.Fragment.Length > 0)
+                errors.Add($"objectStorageBuckets[{i}].endpoint must be an origin URL without a path, query, or fragment.");
+
+            if (string.IsNullOrWhiteSpace(bucket.Region))
+                errors.Add($"objectStorageBuckets[{i}].region is empty.");
+            if (string.IsNullOrWhiteSpace(bucket.AccessKey) && string.IsNullOrWhiteSpace(bucket.AccessKeyFile))
+                errors.Add($"objectStorageBuckets[{i}] needs accessKey or accessKeyFile.");
+            if (string.IsNullOrWhiteSpace(bucket.SecretKey) && string.IsNullOrWhiteSpace(bucket.SecretKeyFile))
+                errors.Add($"objectStorageBuckets[{i}] needs secretKey or secretKeyFile.");
+            if (!string.IsNullOrWhiteSpace(bucket.AccessKey) && !string.IsNullOrWhiteSpace(bucket.AccessKeyFile))
+                errors.Add($"objectStorageBuckets[{i}].accessKey and accessKeyFile are both set — pick one.");
+            if (!string.IsNullOrWhiteSpace(bucket.SecretKey) && !string.IsNullOrWhiteSpace(bucket.SecretKeyFile))
+                errors.Add($"objectStorageBuckets[{i}].secretKey and secretKeyFile are both set — pick one.");
+            if (!bucket.CheckObjectLock && bucket.ObjectLockRequired)
+                errors.Add($"objectStorageBuckets[{i}].objectLockRequired is true while checkObjectLock is false.");
+            if (!bucket.CheckObjectLock && bucket.MinRetentionDays is not null)
+                errors.Add($"objectStorageBuckets[{i}].minRetentionDays requires checkObjectLock.");
+            if (bucket.MinRetentionDays is { } days && days <= 0)
+                errors.Add($"objectStorageBuckets[{i}].minRetentionDays must be positive.");
+            if (bucket.CheckNewestObject && bucket.MaxNewestObjectAgeHours <= 0)
+                errors.Add($"objectStorageBuckets[{i}].maxNewestObjectAgeHours must be positive when checkNewestObject is true.");
+            if (bucket.MaxListKeys is < 1 or > 1000)
+                errors.Add($"objectStorageBuckets[{i}].maxListKeys must be between 1 and 1000.");
+            if (bucket.MaxListRequests is < 1 or > 100)
+                errors.Add($"objectStorageBuckets[{i}].maxListRequests must be between 1 and 100.");
+        }
 
         return errors;
     }

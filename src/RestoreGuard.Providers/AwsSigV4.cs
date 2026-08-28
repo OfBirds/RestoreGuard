@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace RestoreGuard.Cli;
+namespace RestoreGuard.Providers;
 
 /// <summary>
-/// Minimal AWS Signature V4 signer — just enough for object PUT/DELETE against any
-/// S3-compatible endpoint (MinIO, Garage, R2, AWS). Hand-rolled on purpose: the
-/// report sink only ever puts and deletes single objects, and a full SDK would be
-/// the largest dependency in the binary by far.
+/// Minimal AWS Signature V4 signer — just enough for object PUT/DELETE/GET against any
+/// S3-compatible endpoint (MinIO, Garage, R2, AWS). Hand-rolled on purpose: the report
+/// sink and read-only object-storage audit only put, delete, and get known paths, and a
+/// full SDK would be the largest dependency in the binary by far.
 /// </summary>
 public static class AwsSigV4
 {

@@ -10,6 +10,7 @@ public enum ServiceKind
     K8sWorkload,
     K8sCluster,
     K8sPersistentVolumeClaim,
+    ObjectStorageBucket,
 }
 
 /// <summary>A mount as either declared (compose config) or live (container inspect).</summary>

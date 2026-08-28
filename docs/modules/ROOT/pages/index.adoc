@@ -74,6 +74,9 @@ xref:configuration.adoc[configuration reference]):
   deployment availability, and node readiness.
 * *Off-site copies* — every scheduled rclone sync job ran, succeeded, and is
   recent; the destination has room. A job that never ran is a finding, not a gap.
+* *S3-compatible object storage* — bucket versioning, Object Lock/default
+  retention, and (optionally) a bounded newest-object freshness proof via signed
+  metadata and list requests only. It never writes a probe object or reads object bodies.
 * *Disks* — SMART health on the machines that own the physical disks.
 
 The full rule catalog is in xref:checks.adoc[What gets checked].
