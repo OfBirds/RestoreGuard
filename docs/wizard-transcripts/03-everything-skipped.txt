@@ -65,6 +65,9 @@ SMART host #1 SSH destination (e.g. pve or root@192.168.1.5; Enter = skip SMART)
 --- Kubernetes / K3s (node and deployment health, plus Velero backup coverage) ---
 Do you run a Kubernetes or K3s cluster that RestoreGuard should audit? [y/N]: «n»
 
+--- S3-compatible object storage (versioning, Object Lock, newest object) ---
+Do you back up to an S3-compatible bucket (MinIO, Garage, R2, AWS)? [y/N]: «n»
+
 Nothing was configured, so there is nothing to audit yet.
 Re-run `restoreguard` to try again, or copy restoreguard.sample.json and edit it by hand.
 -------------------------------------------------------------------------------

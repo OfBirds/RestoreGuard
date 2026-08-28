@@ -1,5 +1,6 @@
 using System.Text;
 using RestoreGuard.Cli;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Tests;
 
@@ -76,6 +77,9 @@ public class WizardTranscriptTests
                 "y", "pve", "pct exec 601 -- k3s kubectl",  // Kubernetes + readyz probe
                 "y", "", "y", "",                         // Velero default namespace, workloads, freshness
                 "",                                          // Kubernetes: done
+                "y", "offsite", "https://s3.example.com", "valid-bucket", "s3-access", "s3-secret",
+                "y", "y", "30", "y", "26",               // S3: lock, retention, newest object
+                "",                                          // S3: done
             ]),
 
         ["02-wrong-answers-rejected"] = new(
@@ -128,6 +132,9 @@ public class WizardTranscriptTests
                 "y", "pve", "notkubectl", "n", "",      // bad command -> reject -> skip cluster
                 "pve", "", "y", "wrong-namespace", "n", "", // retry; bad Velero namespace -> skip it
                 "y", "",                                    // workload checks + Kubernetes done
+                "y", "offsite", "https://s3.example.com/invalid", "https://s3.example.com",
+                "valid-bucket", "s3-access", "s3-secret", "y", "n", "y", "", // S3: endpoint rejected, then valid
+                "",                                          // S3: done
             ]),
 
         ["03-everything-skipped"] = new(
@@ -147,6 +154,7 @@ public class WizardTranscriptTests
                 "n",                                         // sqlite: no
                 "",                                          // smart: skip
                 "n",                                         // Kubernetes: no
+                "n",                                         // S3: no
             ]),
     };
 
@@ -180,7 +188,7 @@ public class WizardTranscriptTests
             var ssh = new FakeLabSsh();
             var dialogue = new StringWriter();
             var ok = await InteractiveMode.RunWizardAsync(configPath, ssh,
-                new WizardIO(new EchoReader(scenario.Answers, dialogue), dialogue));
+                new WizardIO(new EchoReader(scenario.Answers, dialogue), dialogue), new TranscriptStorage());
 
             var sb = new StringBuilder();
             sb.AppendLine($"=== Wizard transcript: {scenario.Title} ===");
@@ -240,6 +248,15 @@ public class WizardTranscriptTests
             dir = dir.Parent;
         return dir?.FullName
             ?? throw new InvalidOperationException("Could not locate the repo root (RestoreGuard.slnx).");
+    }
+
+    private sealed class TranscriptStorage : IObjectStorageProvider
+    {
+        public Task<S3BucketAudit> GetBucketAsync(
+            S3BucketConfig config, string configDir, CancellationToken ct = default) => Task.FromResult(
+            new S3BucketAudit(
+                config.Name, config.Bucket, new("Enabled", false), new(true, "COMPLIANCE", 30, null),
+                new("backup/newest.json", DateTimeOffset.UtcNow, 1), false));
     }
 
     // Shared with the reporting-wizard transcript below.

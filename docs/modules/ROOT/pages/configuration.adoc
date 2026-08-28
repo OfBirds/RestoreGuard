@@ -276,6 +276,48 @@ The script's log must mark runs with `=== <ts> sync start ===` /
 *Host needs:* read access to the log; the host's rclone remote must
 authenticate non-interactively.
 
+== `objectStorageBuckets` — S3-compatible immutability *(hand-edited)*
+
+[source,json]
+----
+"objectStorageBuckets": [
+  {
+    "name": "offsite-backup-bucket",
+    "endpoint": "https://s3.example.com",
+    "bucket": "homelab-backups",
+    "prefix": "backup/",
+    "region": "us-east-1",
+    "forcePathStyle": true,
+    "accessKeyFile": "/secure/restoreguard/s3-access-key",
+    "secretKeyFile": "/secure/restoreguard/s3-secret-key",
+    "checkObjectLock": true,
+    "objectLockRequired": true,
+    "minRetentionDays": 30,
+    "checkNewestObject": true,
+    "maxNewestObjectAgeHours": 26,
+    "maxListKeys": 100,
+    "maxListRequests": 5
+  }
+]
+----
+
+`endpoint` must be an HTTP(S) origin (no path, query, fragment, or embedded
+credential). RestoreGuard signs GET requests with SigV4 and reads only bucket metadata. It
+never uploads a probe object and never downloads object content. Versioning is
+always required. Object Lock and default retention are optional; enable
+`checkObjectLock` for a bucket that must be immutable. Freshness is opt-in and
+uses `ListObjectsV2` pages under `prefix` to find the newest object.
+
+The freshness scan is deliberately bounded by `maxListKeys` (1–1000 per page)
+and `maxListRequests` (1–100). If the bound is exhausted before it can prove
+the newest object, RestoreGuard reports a YELLOW `s3/newest-object-unproven`
+finding instead of treating the scan as green. Secret values may be inline or in
+files; prefer files and keep them outside source and logs.
+
+The wizard probes the same signed metadata during setup. `doctor` evaluates the
+same configured versioning, Object Lock/default-retention, and optional
+newest-object requirements without running the full audit.
+
 == `pbsMaintenance` — PBS GC & verification *(hand-edited)*
 
 [source,json]

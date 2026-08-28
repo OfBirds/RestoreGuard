@@ -1,5 +1,6 @@
 using System.Net;
 using RestoreGuard.Cli;
+using RestoreGuard.Providers;
 
 namespace RestoreGuard.Tests;
 

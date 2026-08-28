@@ -3,6 +3,7 @@ using RestoreGuard.Providers;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
 using RestoreGuard.Providers.Kubernetes;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Tests;
 
@@ -185,6 +186,43 @@ public class DoctorTests
         }
 
         Assert.Contains("expected stdout 'yes', got 'no'", output.ToString());
+    }
+
+    [Fact]
+    public async Task S3Doctor_PreflightsSignedReadOnlyMetadata()
+    {
+        var reportDir = Directory.CreateTempSubdirectory("rg-s3-doctor");
+        var config = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+            ObjectStorageBuckets: [new S3BucketConfig("offsite", "https://s3.example.com", "bucket")]);
+        var output = new StringWriter();
+        var original = Console.Out;
+        try
+        {
+            Console.SetOut(output);
+            var exit = await Doctor.RunAsync(
+                config, new DoctorSsh(), reportDir.FullName, new FakeStorage(lockEnabled: false));
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetOut(original);
+            reportDir.Delete(recursive: true);
+        }
+
+        Assert.Contains("Object Lock is not enabled", output.ToString());
+    }
+
+    private sealed class FakeStorage(bool lockEnabled) : IObjectStorageProvider
+    {
+        public Task<S3BucketAudit> GetBucketAsync(
+            S3BucketConfig config, string configDir, CancellationToken ct = default) => Task.FromResult(
+            new S3BucketAudit(
+                config.Name,
+                config.Bucket,
+                new("Enabled", false),
+                lockEnabled ? new(true, "COMPLIANCE", 30, null) : new(false, null, null, null),
+                null,
+                false));
     }
 
     private sealed class DoctorSsh : ISshProvider

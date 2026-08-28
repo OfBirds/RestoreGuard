@@ -120,8 +120,33 @@
     "rcloneRemote": "onedrive:",
     "targetName": "pbs-nvme",
     "maxSyncAgeHours": 26,
-    "maxRunAgeHours": 6
+  "maxRunAgeHours": 6
   },
+
+  // S3-compatible bucket immutability: signed read-only metadata probes. Versioning
+  // is always required; Object Lock and newest-object freshness are optional. Secret
+  // files live on the RestoreGuard operator machine (never in this JSON, never logs).
+  // maxListKeys/maxListRequests bound the newest-object scan to 5 pages x 100 keys;
+  // an exhausted bound is YELLOW rather than a false green.
+  "objectStorageBuckets": [
+    {
+      "name": "offsite-backup-bucket",
+      "endpoint": "https://s3.example.com",
+      "bucket": "homelab-backups",
+      "prefix": "backup/",
+      "region": "us-east-1",
+      "forcePathStyle": true,
+      "accessKeyFile": "/secure/restoreguard/s3-access-key",
+      "secretKeyFile": "/secure/restoreguard/s3-secret-key",
+      "checkObjectLock": true,
+      "objectLockRequired": true,
+      "minRetentionDays": 30,
+      "checkNewestObject": true,
+      "maxNewestObjectAgeHours": 26,
+      "maxListKeys": 100,
+      "maxListRequests": 5
+    }
+  ],
 
   // PBS GC + verify-job hygiene, read by running proxmox-backup-manager inside the
   // PBS container from its PVE host (pct exec — needs root on the PVE host).

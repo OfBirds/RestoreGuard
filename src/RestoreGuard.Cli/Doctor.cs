@@ -1,4 +1,7 @@
 using RestoreGuard.Providers;
+using RestoreGuard.Providers.S3;
+using RestoreGuard.Checks;
+using RestoreGuard.Core.Model;
 
 namespace RestoreGuard.Cli;
 
@@ -195,16 +198,23 @@ public static class Doctor
         return probes;
     }
 
-    public static async Task<int> RunAsync(RestoreGuardConfig config, ISshProvider ssh, string configDir = ".")
+    public static async Task<int> RunAsync(
+        RestoreGuardConfig config,
+        ISshProvider ssh,
+        string configDir = ".",
+        IObjectStorageProvider? objectStorage = null)
     {
         var probes = BuildProbes(config);
-        if (probes.Count == 0)
+        if (probes.Count == 0 && config.ObjectStorageBuckets is not { Count: > 0 })
         {
             Console.WriteLine("Nothing configured — every section of restoreguard.json is optional, but at least one is needed.");
             return 2;
         }
 
-        Console.WriteLine($"RestoreGuard doctor — probing {probes.Count} requirement(s) across {probes.Select(p => p.Host).Distinct().Count()} host(s)…");
+        var hostCount = probes.Select(p => p.Host)
+            .Concat((config.ObjectStorageBuckets ?? []).Select(b => b.Name))
+            .Distinct().Count();
+        Console.WriteLine($"RestoreGuard doctor — probing {probes.Count + (config.ObjectStorageBuckets?.Count ?? 0)} requirement(s) across {hostCount} host(s)…");
         Console.WriteLine();
 
         var results = await Task.WhenAll(probes.Select(async p =>
@@ -232,6 +242,30 @@ public static class Doctor
                 Console.WriteLine($"        -> {Truncate(detail)}");
         }
 
+        var storageProvider = objectStorage ?? new S3ObjectStorageProvider();
+        var storageResults = await Task.WhenAll((config.ObjectStorageBuckets ?? []).Select(async bucket =>
+        {
+            var requirement = $"bucket metadata readable and configured immutability checks pass ({bucket.Name})";
+            try
+            {
+                var audit = await storageProvider.GetBucketAsync(bucket, configDir);
+                var findings = new S3ImmutabilityCheck(
+                    [audit],
+                    [new S3BucketExpectation(bucket.Name, bucket.ObjectLockRequired,
+                        bucket.MinRetentionDays, bucket.CheckNewestObject, bucket.MaxNewestObjectAgeHours)])
+                    .Evaluate(new LabInventory(DateTimeOffset.UtcNow, [], [], []))
+                    .ToList();
+                return (Host: bucket.Name, Area: "s3", Ok: findings.Count == 0,
+                    Detail: string.Join("; ", findings.Select(f => f.Evidence)),
+                    Requirement: requirement);
+            }
+            catch (Exception ex)
+            {
+                return (Host: bucket.Name, Area: "s3", Ok: false, Detail: ex.Message, Requirement: requirement);
+            }
+        }));
+
+
         // Report destinations are prerequisites too: a nightly audit whose report
         // can't be delivered is exit-1 every night — catch that here instead.
         var sinkResults = await Task.WhenAll(ReportPublisher.BuildSinks(config, configDir).Select(async sink =>
@@ -252,11 +286,22 @@ public static class Doctor
             Console.Write(ok ? "[ OK ]" : "[FAIL]");
             Console.ResetColor();
             Console.WriteLine($" {"(local)",-10} {"reporting",-15} report destination writable: {sink.Description}");
+        if (!ok && detail.Length > 0)
+                Console.WriteLine($"        -> {Truncate(detail)}");
+        }
+
+        foreach (var (host, area, ok, detail, requirement) in storageResults)
+        {
+            Console.ForegroundColor = ok ? ConsoleColor.Green : ConsoleColor.Red;
+            Console.Write(ok ? "[ OK ]" : "[FAIL]");
+            Console.ResetColor();
+            Console.WriteLine($" {host,-10} {area,-15} {requirement}");
             if (!ok && detail.Length > 0)
                 Console.WriteLine($"        -> {Truncate(detail)}");
         }
 
         var failures = results.Where(r => !r.Ok).Select(r => (r.Ok, r.Detail))
+            .Concat(storageResults.Where(r => !r.Ok).Select(r => (r.Ok, r.Detail)))
             .Concat(sinkResults.Where(r => !r.Ok).Select(r => (r.Ok, r.Detail)))
             .ToList();
         Console.WriteLine();

@@ -1,8 +1,11 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using RestoreGuard.Checks;
+using RestoreGuard.Core.Model;
 using RestoreGuard.Providers;
 using RestoreGuard.Providers.Docker;
 using RestoreGuard.Providers.Pve;
+using RestoreGuard.Providers.S3;
 
 namespace RestoreGuard.Cli;
 
@@ -126,7 +129,11 @@ public static class InteractiveMode
     /// destination AND every content answer (paths, storage names, datasets) on the
     /// target as it is entered. Covers the common core; advanced sections point at
     /// restoreguard.sample.json.</summary>
-    public static async Task<bool> RunWizardAsync(string configPath, ISshProvider ssh, WizardIO io)
+    public static async Task<bool> RunWizardAsync(
+        string configPath,
+        ISshProvider ssh,
+        WizardIO io,
+        IObjectStorageProvider? objectStorage = null)
     {
         io.WriteLine($"""
 
@@ -698,6 +705,134 @@ public static class InteractiveMode
             }
         }
 
+        io.WriteLine();
+        io.WriteLine("--- S3-compatible object storage (versioning, Object Lock, newest object) ---");
+        var objectStorageBuckets = new List<S3BucketConfig>();
+        if (AskYesNo(io, "Do you back up to an S3-compatible bucket (MinIO, Garage, R2, AWS)?"))
+        {
+            var provider = objectStorage ?? new S3ObjectStorageProvider();
+            var bucketConfigDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
+            while (true)
+            {
+                var name = Ask(io,
+                    $"  a name for bucket #{objectStorageBuckets.Count + 1} (Enter = skip)",
+                    "");
+                if (name.Length == 0)
+                    break;
+
+                var endpoint = "";
+                while (true)
+                {
+                    endpoint = Ask(io, "  endpoint URL", "");
+                    if (endpoint.Length == 0)
+                        break;
+                    if (Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) &&
+                        uri.Scheme is "http" or "https" && uri.UserInfo.Length == 0 &&
+                        uri.AbsolutePath == "/" && uri.Query.Length == 0 && uri.Fragment.Length == 0)
+                        break;
+                    io.WriteLine("  PROBLEM — use an http(s) origin URL without a path, query, fragment, or embedded credentials (e.g. https://s3.example.com).");
+                }
+                if (endpoint.Length == 0)
+                {
+                    io.WriteLine("  Skipping this bucket (no endpoint).");
+                    continue;
+                }
+
+                var bucketName = Ask(io, "  bucket name", "");
+                if (bucketName.Length == 0)
+                {
+                    io.WriteLine("  Skipping this bucket (no bucket name).");
+                    continue;
+                }
+
+                var accessKeyFile = Ask(io, "  file containing the access key", "");
+                var secretKeyFile = Ask(io, "  file containing the secret key", "");
+                if (accessKeyFile.Length == 0 || secretKeyFile.Length == 0)
+                {
+                    io.WriteLine("  Skipping this bucket (credential files are required).");
+                    continue;
+                }
+
+                var checkObjectLock = AskYesNo(io, "  require Object Lock and a default retention rule?");
+                int? minRetentionDays = null;
+                if (checkObjectLock && AskYesNo(io, "  enforce a minimum default retention age?"))
+                {
+                    while (true)
+                    {
+                        var answer = Ask(io, "  minimum default retention (days)", "30");
+                        if (int.TryParse(answer, out var days) && days > 0)
+                        {
+                            minRetentionDays = days;
+                            break;
+                        }
+                        io.WriteLine("  PROBLEM — the retention age is a positive number of days.");
+                    }
+                }
+
+                var checkNewestObject = AskYesNo(io, "  check the newest object's age with a read-only listing?");
+                var maxAgeHours = checkNewestObject ? AskHours(io, 26) : 26;
+                var bucketConfig = new S3BucketConfig(
+                    name, endpoint, bucketName,
+                    Region: Ask(io, "  S3 region", "us-east-1"),
+                    AccessKeyFile: accessKeyFile,
+                    SecretKeyFile: secretKeyFile,
+                    CheckObjectLock: checkObjectLock,
+                    ObjectLockRequired: checkObjectLock,
+                    MinRetentionDays: minRetentionDays,
+                    CheckNewestObject: checkNewestObject,
+                    MaxNewestObjectAgeHours: maxAgeHours);
+
+                var validationErrors = new RestoreGuardConfig([], null, null, 26, null, null, null, null, null, null,
+                    ObjectStorageBuckets: [.. objectStorageBuckets, bucketConfig])
+                    .Validate()
+                    .Where(error => error.StartsWith("objectStorageBuckets[", StringComparison.Ordinal))
+                    .ToList();
+                if (validationErrors.Count > 0)
+                {
+                    foreach (var error in validationErrors)
+                        io.WriteLine($"  PROBLEM — {error}");
+                    io.WriteLine("  Bucket skipped; correct the configuration before a live probe.");
+                    continue;
+                }
+
+                io.Write("  checking bucket metadata (signed GET only) ... ");
+                try
+                {
+                    var audit = await provider.GetBucketAsync(bucketConfig, bucketConfigDir);
+                    var findings = new S3ImmutabilityCheck(
+                        [audit],
+                        [new S3BucketExpectation(bucketConfig.Name, bucketConfig.ObjectLockRequired,
+                            bucketConfig.MinRetentionDays, bucketConfig.CheckNewestObject,
+                            bucketConfig.MaxNewestObjectAgeHours)])
+                        .Evaluate(new LabInventory(DateTimeOffset.UtcNow, [], [], []))
+                        .ToList();
+                    io.WriteLine(findings.Count == 0 ? "OK" : "PROBLEM");
+                    foreach (var finding in findings)
+                        io.WriteLine($"    {finding.Evidence}");
+                    if (findings.Count > 0)
+                    {
+                        if (!AskYesNo(io, "  Keep this bucket anyway?"))
+                        {
+                            io.WriteLine("  Bucket skipped; it does not yet meet the configured immutability and freshness rules.");
+                            continue;
+                        }
+                    }
+                    objectStorageBuckets.Add(bucketConfig);
+                }
+                catch (Exception ex)
+                {
+                    io.WriteLine("FAILED");
+                    io.WriteLine($"    {ex.Message}");
+                    if (!AskYesNo(io, "  Keep this bucket anyway?"))
+                    {
+                        io.WriteLine("  Skipping this bucket.");
+                        continue;
+                    }
+                    objectStorageBuckets.Add(bucketConfig);
+                }
+            }
+        }
+
         var configured = new List<string>();
         if (dockerHosts.Count > 0) configured.Add($"{dockerHosts.Count} Docker host(s)");
         if (logicalDb is not null) configured.Add("DB dumps");
@@ -719,6 +854,7 @@ public static class InteractiveMode
         if (sqliteBackupDirs.Count > 0) configured.Add($"{sqliteBackupDirs.Count} SQLite scan folder(s)");
         if (smartHosts.Count > 0) configured.Add($"SMART on {smartHosts.Count} host(s)");
         if (kubernetesClusters.Count > 0) configured.Add($"{kubernetesClusters.Count} Kubernetes cluster(s)");
+        if (objectStorageBuckets.Count > 0) configured.Add($"{objectStorageBuckets.Count} S3 bucket(s)");
 
         if (configured.Count == 0)
         {
@@ -737,7 +873,8 @@ public static class InteractiveMode
             ZfsReplications: zfsReplications.Count > 0 ? zfsReplications : null,
             OffsiteJobs: offsiteJobs.Count > 0 ? offsiteJobs : null,
             SqliteBackupDirs: sqliteBackupDirs.Count > 0 ? sqliteBackupDirs : null,
-            KubernetesClusters: kubernetesClusters.Count > 0 ? kubernetesClusters : null);
+            KubernetesClusters: kubernetesClusters.Count > 0 ? kubernetesClusters : null,
+            ObjectStorageBuckets: objectStorageBuckets.Count > 0 ? objectStorageBuckets : null);
 
         var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath))!;
         var suppressionsPath = Path.Combine(configDir, "suppressions.json");
